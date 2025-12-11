@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Member } from '../../utils/sqlite'
+import type { Member } from '~/db/database.server'
 import Input from '../ui/Input'
 import Button from '../ui/Button'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -69,8 +69,8 @@ export default function MemberTable({ members, onDelete, onEdit, onDownloadCSV }
 
       {/* Modal de modification */}
       {editingMember && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl animate-slideIn">
+        <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-50 p-4 animate-fadeIn overflow-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl my-10 shadow-xl animate-slideIn">
             <h2 className="text-lg font-semibold text-gray-800 mb-4 flex items-center gap-2">
               <FontAwesomeIcon icon={faPencil} className="w-5 h-5 text-[#4a2b87]" />
               Modifier le membre
@@ -100,7 +100,7 @@ export default function MemberTable({ members, onDelete, onEdit, onDownloadCSV }
               className="mb-4"
             />
             
-            <div className="flex gap-3">
+            <div className="flex gap-3 mt-6">
               <Button onClick={handleSaveEdit} fullWidth>
                 Enregistrer
               </Button>
@@ -158,6 +158,7 @@ export default function MemberTable({ members, onDelete, onEdit, onDownloadCSV }
                           title="Supprimer"
                         >
                           <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -202,6 +203,7 @@ export default function MemberTable({ members, onDelete, onEdit, onDownloadCSV }
                     className="p-2 rounded-lg text-[#d32f2f] hover:bg-[#d32f2f]/10 transition-colors"
                   >
                     <FontAwesomeIcon icon={faTrash} className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             </div>

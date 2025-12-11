@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { Presence } from '../../utils/sqlite'
+import type { Presence } from '~/db/database.server'
 import Input from '../ui/Input'
 import Select from '../ui/Select'
 import Button from '../ui/Button'
@@ -229,6 +229,8 @@ export default function PresenceTable({ entries, onDownloadCSV, onEdit, onDelete
                               title="Supprimer"
                             >
                               <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     )}
@@ -278,6 +280,8 @@ export default function PresenceTable({ entries, onDownloadCSV, onEdit, onDelete
                           className="p-1.5 rounded-lg text-[#d32f2f] hover:bg-[#d32f2f]/10 transition-colors"
                         >
                           <FontAwesomeIcon icon={faTrash} className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>

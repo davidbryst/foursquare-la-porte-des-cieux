@@ -13,6 +13,7 @@ import Input from "~/components/ui/Input";
 import Select from "~/components/ui/Select";
 import Button from "~/components/ui/Button";
 import Tabs from "~/components/ui/Tabs";
+import { useModal } from "~/context/ModalContext";
 
 export function meta({}: Route.MetaArgs) {
   return [{ title: "Dashboard - Présence Culte" }];
@@ -81,10 +82,7 @@ function MemberTable({
   onDataChange: () => void;
 }) {
   const [searchMember, setSearchMember] = useState("");
-  const [editingMember, setEditingMember] = useState<Member | null>(null);
-  const [editNom, setEditNom] = useState("");
-  const [editPrenom, setEditPrenom] = useState("");
-  const [editNumero, setEditNumero] = useState("");
+  const { openMemberModal, setMemberSaveHandler } = useModal();
 
   const deleteFetcher = useFetcher();
   const editFetcher = useFetcher();
@@ -92,9 +90,23 @@ function MemberTable({
   useEffect(() => {
     if (deleteFetcher.data?.success || editFetcher.data?.success) {
       onDataChange();
-      setEditingMember(null);
     }
   }, [deleteFetcher.data, editFetcher.data]);
+
+  useEffect(() => {
+    setMemberSaveHandler((payload) => {
+      const formData = new FormData();
+      formData.append("nom", payload.nom);
+      formData.append("prenom", payload.prenom);
+      formData.append("numero", payload.numero);
+      formData.append("dateDeNaissance", "");
+
+      editFetcher.submit(formData, {
+        method: "put",
+        action: `/api/members/${payload.id}`,
+      });
+    });
+  }, [setMemberSaveHandler, editFetcher]);
 
   const filteredMembers = members
     .filter((member) => {
@@ -110,29 +122,7 @@ function MemberTable({
     });
 
   const handleEditClick = (member: Member) => {
-    setEditingMember(member);
-    setEditNom(member.nom || "");
-    setEditPrenom(member.prenom || "");
-    setEditNumero(member.numero || "");
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingMember) return;
-    if (!editNom.trim() || !editPrenom.trim()) {
-      alert("Le nom et le prénom sont obligatoires.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("nom", editNom.trim());
-    formData.append("prenom", editPrenom.trim());
-    formData.append("numero", editNumero.trim());
-    formData.append("dateDeNaissance", "");
-
-    editFetcher.submit(formData, {
-      method: "put",
-      action: `/api/members/${editingMember.id}`,
-    });
+    openMemberModal(member);
   };
 
   const handleDelete = (memberId: number) => {
@@ -178,38 +168,6 @@ function MemberTable({
       <div className="mb-2 ml-2 text-xs text-gray-700 flex-shrink-0">
         {filteredMembers.length} membre{filteredMembers.length > 1 ? "s" : ""} trouvé{filteredMembers.length > 1 ? "s" : ""}
       </div>
-
-      {/* Edit Modal */}
-      {editingMember && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
-          <div className="bg-white w-full h-full sm:h-auto sm:w-full sm:max-w-2xl sm:rounded-lg sm:shadow-xl flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-[#4a2b87] to-[#5a3b97] text-white p-6 flex-shrink-0">
-              <h2 className="text-xl sm:text-2xl font-semibold">Modifier le membre</h2>
-              <button
-                onClick={() => setEditingMember(null)}
-                className="text-white hover:text-gray-200 text-2xl leading-none"
-                aria-label="Fermer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-auto p-6 space-y-4">
-              <Input label="Nom" value={editNom} onChange={(e) => setEditNom(e.target.value)} />
-              <Input label="Prénom" value={editPrenom} onChange={(e) => setEditPrenom(e.target.value)} />
-              <Input label="Numéro de téléphone" value={editNumero} onChange={(e) => setEditNumero(e.target.value)} />
-            </div>
-
-            {/* Footer */}
-            <div className="flex gap-3 p-6 bg-gray-50 border-t border-gray-200 flex-shrink-0">
-              <Button onClick={handleSaveEdit} className="flex-1">Enregistrer</Button>
-              <Button variant="secondary" onClick={() => setEditingMember(null)} className="flex-1">Annuler</Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Table Desktop */}
       <div className="hidden md:flex flex-col flex-1 min-h-0 table-container bg-white">
@@ -311,9 +269,7 @@ function PresenceTable({
 }) {
   const [searchName, setSearchName] = useState("");
   const [filterCulte, setFilterCulte] = useState("");
-  const [editingPresence, setEditingPresence] = useState<Presence | null>(null);
-  const [editPresenceStatus, setEditPresenceStatus] = useState<"Présent" | "Absent">("Présent");
-  const [editCulte, setEditCulte] = useState("");
+  const { openPresenceModal, setPresenceSaveHandler } = useModal();
 
   const deleteFetcher = useFetcher();
   const editFetcher = useFetcher();
@@ -321,9 +277,23 @@ function PresenceTable({
   useEffect(() => {
     if (deleteFetcher.data?.success || editFetcher.data?.success) {
       onDataChange();
-      setEditingPresence(null);
     }
   }, [deleteFetcher.data, editFetcher.data]);
+
+  useEffect(() => {
+    setPresenceSaveHandler((payload) => {
+      const culteId = payload.culte === "1er culte" ? 1 : payload.culte === "2ème culte" ? 2 : 1;
+
+      const formData = new FormData();
+      formData.append("presence", (payload.presenceStatus === "Présent").toString());
+      formData.append("culteId", culteId.toString());
+
+      editFetcher.submit(formData, {
+        method: "put",
+        action: `/api/presences/${payload.id}`,
+      });
+    });
+  }, [setPresenceSaveHandler, editFetcher]);
 
   const cultes = [
     ...new Set(entries.map((e) => e.culte).filter((c) => c && c !== "Non spécifié")),
@@ -343,23 +313,7 @@ function PresenceTable({
   });
 
   const handleEditClick = (presence: Presence) => {
-    setEditingPresence(presence);
-    setEditPresenceStatus(presence.presence === "Présent" ? "Présent" : "Absent");
-    setEditCulte(presence.culte || "1er culte");
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingPresence) return;
-    const culteId = editCulte === "1er culte" ? 1 : editCulte === "2ème culte" ? 2 : 1;
-
-    const formData = new FormData();
-    formData.append("presence", (editPresenceStatus === "Présent").toString());
-    formData.append("culteId", culteId.toString());
-
-    editFetcher.submit(formData, {
-      method: "put",
-      action: `/api/presences/${editingPresence.id}`,
-    });
+    openPresenceModal(presence);
   };
 
   const handleDeletePresence = (presenceId: number) => {
@@ -416,59 +370,6 @@ function PresenceTable({
         {filteredEntries.length} présence{filteredEntries.length > 1 ? "s" : ""} trouvée{filteredEntries.length > 1 ? "s" : ""}
       </div>
 
-      {/* Edit Modal */}
-      {editingPresence && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fadeIn">
-          <div className="bg-white w-full h-full sm:h-auto sm:w-full sm:max-w-2xl sm:rounded-lg sm:shadow-xl flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between bg-gradient-to-r from-[#4a2b87] to-[#5a3b97] text-white p-6 flex-shrink-0">
-              <h2 className="text-xl sm:text-2xl font-semibold">Modifier la présence</h2>
-              <button
-                onClick={() => setEditingPresence(null)}
-                className="text-white hover:text-gray-200 text-2xl leading-none"
-                aria-label="Fermer"
-              >
-                ✕
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="flex-1 overflow-auto p-6 space-y-6">
-              <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
-                <p className="text-sm text-gray-600">Membre: <span className="font-semibold text-gray-800">{editingPresence.nom}</span></p>
-                <p className="text-sm text-gray-600 mt-2">Date: <span className="font-semibold text-gray-800">{editingPresence.date}</span></p>
-              </div>
-
-              <div>
-                <label className="form-label text-sm font-semibold text-gray-700 mb-3 block">Statut de présence</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <label className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-all ${editPresenceStatus === "Présent" ? "border-[#2e7d32] bg-[#e8f5e9] text-[#2e7d32]" : "border-gray-200 hover:border-gray-300"}`}>
-                    <input type="radio" name="editPresence" value="Présent" checked={editPresenceStatus === "Présent"} onChange={() => setEditPresenceStatus("Présent")} className="sr-only" />
-                    <span className="font-medium">Présent</span>
-                  </label>
-                  <label className={`flex items-center justify-center gap-2 p-4 rounded-lg border-2 cursor-pointer transition-all ${editPresenceStatus === "Absent" ? "border-[#c62828] bg-[#ffebee] text-[#c62828]" : "border-gray-200 hover:border-gray-300"}`}>
-                    <input type="radio" name="editPresence" value="Absent" checked={editPresenceStatus === "Absent"} onChange={() => setEditPresenceStatus("Absent")} className="sr-only" />
-                    <span className="font-medium">Absent</span>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <Select label="Culte" value={editCulte} onChange={(e) => setEditCulte(e.target.value)}>
-                  <option value="1er culte">1er culte</option>
-                  <option value="2ème culte">2ème culte</option>
-                </Select>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex gap-3 p-6 bg-gray-50 border-t border-gray-200 flex-shrink-0">
-              <Button onClick={handleSaveEdit} className="flex-1">Enregistrer</Button>
-              <Button variant="secondary" onClick={() => setEditingPresence(null)} className="flex-1">Annuler</Button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Table Desktop */}
       <div className="hidden lg:flex flex-col flex-1 min-h-0 table-container overflow-hidden">

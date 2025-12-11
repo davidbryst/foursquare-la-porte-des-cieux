@@ -11,6 +11,9 @@ import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 
 import type { Route } from "./+types/root";
 import "./app.css";
+import { ModalProvider } from "~/context/ModalContext";
+import MemberEditModal from "~/components/modals/MemberEditModal";
+import PresenceEditModal from "~/components/modals/PresenceEditModal";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -119,7 +122,13 @@ export function Layout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
-  return <Outlet />;
+  return (
+    <ModalProvider>
+      <Outlet />
+      <MemberEditModal />
+      <PresenceEditModal />
+    </ModalProvider>
+  );
 }
 
 export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
