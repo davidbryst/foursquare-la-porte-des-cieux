@@ -15,17 +15,20 @@
     "@react-router/node": "7.10.1",
     "@react-router/serve": "7.10.1",
     "better-sqlite3": "^12.5.0",
+    "exceljs": "^4.4.0",
     "isbot": "^5.1.31",
     "lucide": "^0.556.0",
     "lucide-react": "^0.556.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
-    "react-router": "7.10.1"
+    "react-router": "7.10.1",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@react-router/dev": "7.10.1",
     "@tailwindcss/vite": "^4.1.13",
     "@types/better-sqlite3": "^7.6.13",
+    "@types/exceljs": "^0.5.3",
     "@types/node": "^22",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

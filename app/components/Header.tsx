@@ -31,6 +31,7 @@ export default function Header({ onLogout, showLogout = false }: HeaderProps) {
         {!isOnHome && (
           <Link
             to="/"
+            target="_blank"
             className={navLinkClass}
             aria-label="Retour à l'accueil"
           >

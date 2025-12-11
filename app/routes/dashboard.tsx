@@ -6,6 +6,7 @@ import { requireUser } from "~/utils/session.server";
 import type { Member, Presence } from "~/db/database.server";
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPencil, faTrash } from '@fortawesome/free-solid-svg-icons';
+import ExcelJS from "exceljs";
 
 // Components
 import Header from "~/components/Header";
@@ -19,7 +20,9 @@ export function meta({}: Route.MetaArgs) {
   return [{ title: "Dashboard - Présence Culte" }];
 }
 
-export async function loader({ request }: Route.LoaderArgs) {
+
+export async function loader(
+  { request }: Route.LoaderArgs) {
   await requireUser(request);
   const members = getAllMembers();
   const presences = getAllPresences();
@@ -134,22 +137,93 @@ function MemberTable({
     }
   };
 
-  const downloadCSV = () => {
+  const downloadExcel = async () => {
     if (members.length === 0) {
       alert("Aucun membre à télécharger !");
       return;
     }
 
-    let csvContent = "Nom,Prénom,Numéro de téléphone\n";
-    filteredMembers.forEach((member) => {
-      csvContent += `${member.nom || ""},${member.prenom || ""},${member.numero || "N/A"}\n`;
+    const header = [
+      "Nom",
+      "Prénom",
+      "Date de naissance",
+      "Numéro de téléphone",
+      "Statut téléphone",
+      // "Symbole",
+    ];
+
+    const rows = filteredMembers.map((member) => {
+      const fullName = `${member.nom || ""} ${member.prenom || ""}`.trim();
+      const hasPhone = !!member.numero;
+      const phoneStatus = hasPhone ? "OK" : "Numéro manquant";
+      // const phoneEmoji = hasPhone ? "📞" : "⚠️";
+      return [
+        member.nom || "",
+        member.prenom || "",
+        member.dateDeNaissance || "",
+        member.numero || "",
+        phoneStatus,
+        // phoneEmoji,
+      ];
     });
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Membres");
+
+    worksheet.columns = [
+      { header: header[0], key: "nom", width: 20 },
+      { header: header[1], key: "prenom", width: 20 },
+      { header: header[2], key: "dateDeNaissance", width: 20 },
+      { header: header[3], key: "numero", width: 20 },
+      { header: header[4], key: "status", width: 20 },
+      // { header: header[5], key: "emoji", width: 15 },
+    ];
+
+    rows.forEach((row) => {
+      worksheet.addRow({
+        nom: row[0],
+        prenom: row[1],
+        dateDeNaissance: row[2],
+        numero: row[3],
+        status: row[4],
+        // emoji: row[5],
+      });
+    });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF4A2B87" },
+      };
+      cell.font = { color: { argb: "FFFFFFFF" }, bold: true };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FFFFFFFF" } },
+        left: { style: "thin", color: { argb: "FFFFFFFF" } },
+        bottom: { style: "thin", color: { argb: "FFFFFFFF" } },
+        right: { style: "thin", color: { argb: "FFFFFFFF" } },
+      };
+    });
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+      row.height = 20;
+      row.eachCell((cell) => {
+        cell.alignment = { vertical: "middle", horizontal: "left" };
+      });
+    });
+
+    const excelBuffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "membres.csv";
+    a.download = "membres.xlsx";
     a.click();
   };
 
@@ -252,7 +326,7 @@ function MemberTable({
         )}
       </div>
 
-      <Button onClick={downloadCSV} fullWidth className="mt-4 flex-shrink-0">
+      <Button onClick={downloadExcel} fullWidth className="mt-4 flex-shrink-0">
         Télécharger la liste des membres
       </Button>
     </div>
@@ -325,20 +399,89 @@ function PresenceTable({
     }
   };
 
-  const downloadCSV = () => {
+  const downloadExcel = async () => {
     if (entries.length === 0) {
       alert("Aucune donnée à télécharger !");
       return;
     }
-    let csvContent = "Nom,Numéro,Présence,Culte,Date\n";
-    filteredEntries.forEach((e) => {
-      csvContent += `${e.nom},${e.telephone},${e.presence},${e.culte},${e.date}\n`;
+
+    const header = [
+      "Nom",
+      "Numéro",
+      "Présence",
+      "Raison d'absence",
+      "Culte",
+      "Date",
+    ];
+
+    const rows = filteredEntries.map((e) => {
+      return [
+        e.nom || "",
+        e.telephone || "",
+        e.presence || "",
+        e.pkabsence || "",
+        e.culte || "",
+        e.date || "",
+      ];
     });
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Présences");
+
+    worksheet.columns = [
+      { header: header[0], key: "nom", width: 30 },
+      { header: header[1], key: "telephone", width: 20 },
+      { header: header[2], key: "presence", width: 15 },
+      { header: header[3], key: "raisonAbsence", width: 30 },
+      { header: header[4], key: "culte", width: 20 },
+      { header: header[5], key: "date", width: 18 },
+    ];
+
+    rows.forEach((row) => {
+      worksheet.addRow({
+        nom: row[0],
+        telephone: row[1],
+        presence: row[2],
+        raisonAbsence: row[3],
+        culte: row[4],
+        date: row[5],
+      });
+    });
+
+    const headerRow = worksheet.getRow(1);
+    headerRow.height = 24;
+    headerRow.eachCell((cell) => {
+      cell.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF4A2B87" },
+      };
+      cell.font = { color: { argb: "FFFFFFFF" }, bold: true };
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+      cell.border = {
+        top: { style: "thin", color: { argb: "FFFFFFFF" } },
+        left: { style: "thin", color: { argb: "FFFFFFFF" } },
+        bottom: { style: "thin", color: { argb: "FFFFFFFF" } },
+        right: { style: "thin", color: { argb: "FFFFFFFF" } },
+      };
+    });
+
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+      row.height = 20;
+      row.eachCell((cell) => {
+        cell.alignment = { vertical: "middle", horizontal: "left" };
+      });
+    });
+
+    const excelBuffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([excelBuffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "presence.csv";
+    a.download = "presence.xlsx";
     a.click();
   };
 
@@ -462,7 +605,7 @@ function PresenceTable({
         )}
       </div>
 
-      <Button onClick={downloadCSV} fullWidth className="mt-4 flex-shrink-0">
+      <Button onClick={downloadExcel} fullWidth className="mt-4 flex-shrink-0">
         Télécharger les présences
       </Button>
     </div>
