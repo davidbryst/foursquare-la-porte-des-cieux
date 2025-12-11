@@ -204,7 +204,7 @@ export default function PresenceForm({ members, onSubmit, onSwitchToRegister }: 
       </div>
 
       <p className="mt-5 italic text-[#4a2b87] text-center text-sm bg-[#ede7f6] p-3 rounded-lg">
-        "L'Éternel est mon berger : je ne manquerai de rien." — Psaume 23:1
+        "La maturité pour une pêche abondante en eau profonde." — Luc 5:4
       </p>
     </form>
   )
