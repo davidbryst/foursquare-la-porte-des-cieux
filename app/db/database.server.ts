@@ -163,12 +163,11 @@ export function updateMember(
 function resetTableSequence(tableName: string): void {
   const database = getDb();
   try {
-    // Get the max ID from the table
-    const result = database.prepare(`SELECT MAX(id) as maxId FROM ${tableName}`).get() as { maxId: number | null };
-    const maxId = result.maxId || 0;
-    
-    // Update the sqlite_sequence table to the max ID
-    database.prepare(`UPDATE sqlite_sequence SET seq = ? WHERE name = ?`).run(maxId, tableName);
+    // Simple strategy: just decrement the current sequence value for this table.
+    // On ne laisse pas la valeur devenir négative.
+    database
+      .prepare("UPDATE sqlite_sequence SET seq = CASE WHEN seq > 0 THEN seq - 1 ELSE 0 END WHERE name = ?")
+      .run(tableName);
   } catch (e) {
     console.warn(`Warning: Could not reset sequence for table ${tableName}:`, e);
   }
@@ -350,4 +349,5 @@ export function checkAdminExists(username: string): boolean {
     return false;
   }
 }
+
 
