@@ -15,7 +15,7 @@ interface SearchableSelectProps {
   placeholder?: string
   className?: string
 }
-
+  
 export default function SearchableSelect({
   label,
   value,
@@ -67,7 +67,7 @@ export default function SearchableSelect({
   return (
     <div className={className} ref={containerRef}>
       {label && (
-        <label className="block mb-1 ml-1.5 text-gray-700 font-bold text-sm">
+        <label className="block mb-1 ml-1.5 text-gray-700 font-medium text-sm">
           {label}
         </label>
       )}

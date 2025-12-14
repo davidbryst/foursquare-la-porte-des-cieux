@@ -160,14 +160,17 @@ export function updateMember(
 }
 
 // === HELPER: Reset SQLite sequence after deletion ===
-function resetTableSequence(tableName: string): void {
+function resetTableSequence(tableName: string, nb: number = 1): void {
   const database = getDb();
   try {
-    // Simple strategy: just decrement the current sequence value for this table.
-    // On ne laisse pas la valeur devenir négative.
+    // Décrémente la séquence de 'nb', sans dépasser zéro (CAST en INTEGER)
     database
-      .prepare("UPDATE sqlite_sequence SET seq = CASE WHEN seq > 0 THEN seq - 1 ELSE 0 END WHERE name = ?")
-      .run(tableName);
+      .prepare(`
+        UPDATE sqlite_sequence 
+        SET seq = CAST(CASE WHEN seq > (:nb - 1) THEN seq - :nb ELSE 0 END AS INTEGER)
+        WHERE name = :tableName
+      `)
+      .run({ tableName, nb: Math.floor(nb) });
   } catch (e) {
     console.warn(`Warning: Could not reset sequence for table ${tableName}:`, e);
   }
@@ -176,12 +179,24 @@ function resetTableSequence(tableName: string): void {
 export function deleteMember(memberId: number): boolean {
   const database = getDb();
   try {
+    // Compter les présences AVANT de les supprimer
+    const presenceCount = database
+      .prepare("SELECT COUNT(*) as count FROM presence WHERE member = ?")
+      .get(memberId) as { count: number };
+    const nbPresences = presenceCount?.count || 0;
+    
     // Supprimer les présences associées
     database.prepare("DELETE FROM presence WHERE member = ?").run(memberId);
+    
     // Supprimer le membre
     database.prepare("DELETE FROM membre WHERE id = ?").run(memberId);
-    // Reset the sqlite_sequence for membre table
-    resetTableSequence("membre");
+    
+    // Reset les séquences
+    resetTableSequence("membre", 1);
+    if (nbPresences > 0) {
+      resetTableSequence("presence", nbPresences);
+    }
+    
     return true;
   } catch (e) {
     console.error("Erreur lors de la suppression du membre:", e);
@@ -292,13 +307,14 @@ export function addPresence(
 export function updatePresence(
   presenceId: number,
   presence: boolean,
-  culteId: number
+  culteId: number,
+  pkabsence: string | null = null
 ): boolean {
   const database = getDb();
   try {
     database
-      .prepare("UPDATE presence SET presence = ?, culte = ? WHERE id = ?")
-      .run(presence ? 1 : 0, culteId, presenceId);
+      .prepare("UPDATE presence SET presence = ?, culte = ?, pkabsence = ? WHERE id = ?")
+      .run(presence ? 1 : 0, culteId, pkabsence, presenceId);
     return true;
   } catch (e) {
     console.error("Erreur lors de la modification de la présence:", e);
@@ -349,5 +365,6 @@ export function checkAdminExists(username: string): boolean {
     return false;
   }
 }
+
 
 

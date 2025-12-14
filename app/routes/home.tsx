@@ -3,8 +3,12 @@ import { Link, useFetcher } from "react-router";
 import type { Route } from "./+types/home";
 import { getAllMembers } from "~/db/database.server";
 import type { Member } from "~/db/database.server";
+import Header from "~/components/Header";
+import SearchableSelect from "~/components/ui/SearchableSelect";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { faX } from "@fortawesome/free-solid-svg-icons";
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: "Présence Culte - Accueil" },
     { name: "description", content: "Gestion des présences au culte" },
@@ -53,22 +57,23 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
   }, [presenceFetcher.data]);
 
   return (
-    <section className="flex justify-center items-center min-h-screen py-4 sm:py-8 px-3 sm:px-4 bg-gray-50">
-      <div className="relative z-10 w-full max-w-lg p-4 sm:p-6 md:p-8 rounded-lg bg-white border border-gray-200 shadow-lg mx-auto overflow-hidden container">
+    <section className="flex justify-center items-center min-h-screen py-4 sm:py-8 px-3 sm:px-4">
+      <div className="relative flex flex-col gap-9 z-10 w-full max-w-lg p-4 sm:p-6 md:p-8 rounded-lg bg-white border border-gray-200 shadow-lg mx-auto overflow-hidden mobile-fixed-card">
         <Header />
-        
-        {showPresence ? (
-          <PresenceForm
-            members={members}
-            fetcher={presenceFetcher}
-            onSwitchToRegister={() => setShowPresence(false)}
-          />
-        ) : (
-          <MemberForm
-            fetcher={memberFetcher}
-            onSwitchToPresence={() => setShowPresence(true)}
-          />
-        )}
+        <div className="mobile-scroll-content flex-1 min-h-0 overflow-y-auto flex flex-col">
+          {showPresence ? (
+            <PresenceForm
+              members={members}
+              fetcher={presenceFetcher}
+              onSwitchToRegister={() => setShowPresence(false)}
+            />
+          ) : (
+            <MemberForm
+              fetcher={memberFetcher}
+              onSwitchToPresence={() => setShowPresence(true)}
+            />
+          )}
+        </div>
       </div>
 
       {/* Success Modal */}
@@ -99,44 +104,6 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
   );
 }
 
-// Header Component
-function Header() {
-  return (
-    <header className="relative mb-4 flex items-start justify-between">
-      <div className="w-24">
-        <Link
-          to="/dashboard"
-          target="_blank"
-          className="inline-flex px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium bg-[#4a2b87] text-white no-underline rounded-lg transition-all hover:bg-[#3a2070] shadow-sm items-center gap-1"
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-3 h-3 sm:w-4 sm:h-4"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2"
-            />
-          </svg>
-          <span className="hidden sm:inline">Dashboard</span>
-        </Link>
-      </div>
-
-      <img
-        className="w-14 sm:w-16 md:w-20"
-        src="https://image2url.com/images/1764243038241-9886220a-7dd9-4dc5-a8e7-8ded2d536163.png"
-        alt="Logo"
-      />
-
-      <div className="w-24"></div>
-    </header>
-  );
-}
 
 // Member Form Component
 function MemberForm({
@@ -178,72 +145,82 @@ function MemberForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="animate-fadeIn">
-      <h1 className="text-center text-gray-800 text-lg sm:text-xl my-2 font-semibold">
-        Enregistrement de nouveau membre
-      </h1>
-
-      <p className="text-center text-gray-500 text-sm mb-5">
-        Bienvenue ! Remplissez ce formulaire pour vous inscrire.
-      </p>
-
-      <div className="space-y-4">
+    <form onSubmit={handleSubmit} className="animate-fadeIn flex flex-col h-full flex-1 justify-between pt-4">
+      <div className="flex flex-col h-full justify-around">
         <div>
-          <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-            Nom
-          </label>
-          <input
-            type="text"
-            value={nom}
-            onChange={(e) => setNom(e.target.value)}
-            placeholder="Votre nom de famille"
-            className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
-          />
+        <h1 className="text-center text-gray-800 text-lg sm:text-xl my-2 font-semibold">
+          Enregistrement de nouveau membre
+        </h1>
+
+        <p className="text-center text-gray-500 text-sm mb-5">
+          Bienvenue ! Remplissez ce formulaire pour vous inscrire.
+        </p>
         </div>
 
-        <div>
-          <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-            Prénom
-          </label>
-          <input
-            type="text"
-            value={prenom}
-            onChange={(e) => setPrenom(e.target.value)}
-            placeholder="Votre prénom"
-            className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
-          />
-        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block mb-1.5 text-gray-700 font-medium text-sm">
+              Nom
+            </label>
+            <input
+              type="text"
+              value={nom}
+              onChange={(e) => setNom(e.target.value)}
+              placeholder="Votre nom de famille"
+              className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
+            />
+          </div>
 
-        <div>
-          <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-            Numéro de téléphone
-          </label>
-          <input
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="Ex: 06 12 34 56 78"
-            className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
-          />
+          <div>
+            <label className="block mb-1.5 text-gray-700 font-medium text-sm">
+              Prénom
+            </label>
+            <input
+              type="text"
+              value={prenom}
+              onChange={(e) => setPrenom(e.target.value)}
+              placeholder="Votre prénom"
+              className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block mb-1.5 text-gray-700 font-medium text-sm">
+              Numéro de téléphone
+            </label>
+            <input
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="Ex: 06 12 34 56 78"
+              className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
+            />
+          </div>
         </div>
       </div>
 
-      <div className="mt-6 space-y-3">
-        <button
-          type="submit"
-          disabled={fetcher.state !== "idle"}
-          className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50"
-        >
-          {fetcher.state !== "idle" ? "Enregistrement..." : "Enregistrer"}
-        </button>
+      <div>
+        <div className="mt-6 space-y-3">
+          <button
+            type="submit"
+            disabled={fetcher.state !== "idle"}
+            className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50"
+          >
+            {fetcher.state !== "idle" ? "Enregistrement..." : "Enregistrer"}
+          </button>
 
-        <button
-          type="button"
-          onClick={onSwitchToPresence}
-          className="w-full border border-[#c7b8ea] rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-white text-[#4a2b87] hover:bg-gray-50 shadow-sm hover:shadow-md"
-        >
-          Déjà inscrit ? Aller à la présence
-        </button>
+          <button
+            type="button"
+            onClick={onSwitchToPresence}
+            className="w-full border border-[#c7b8ea] rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-white text-[#4a2b87] hover:bg-gray-50 shadow-sm hover:shadow-md"
+          >
+            Déjà inscrit ? Aller à la présence
+          </button>
+        </div>
+
+        <p className="mt-5 italic text-[#4a2b87] text-center text-sm bg-[#ede7f6] p-3 rounded-lg">
+          "La maturité pour une pêche abondante en eau profonde." — Luc 5:4
+        </p>
       </div>
     </form>
   );
@@ -265,6 +242,7 @@ function PresenceForm({
   const [culte, setCulte] = useState("");
   const [search, setSearch] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [raisonAbsence, setRaisonAbsence] = useState("");
 
   const sortedMembers = [...members].sort((a, b) => {
     const nameA = `${a.nom} ${a.prenom}`.trim();
@@ -303,12 +281,21 @@ function PresenceForm({
       return;
     }
 
+    // Vérifier la raison si absent
+    if (presence === "Absent" && !raisonAbsence.trim()) {
+      alert("Veuillez indiquer la raison de votre absence.");
+      return;
+    }
+
     const culteId = culte === "1er culte" ? 1 : culte === "2ème culte" ? 2 : 1;
     const formData = new FormData();
     formData.append("memberId", selectedMemberId);
     formData.append("culteId", culteId.toString());
     formData.append("presence", (presence === "Présent").toString());
     formData.append("date", new Date().toLocaleDateString());
+    if (presence === "Absent" && raisonAbsence.trim()) {
+      formData.append("pkabsence", raisonAbsence.trim());
+    }
 
     fetcher.submit(formData, { method: "post", action: "/api/presences" });
     setSelectedMemberId("");
@@ -316,6 +303,7 @@ function PresenceForm({
     setPresence("");
     setCulte("");
     setSearch("");
+    setRaisonAbsence("");
   };
 
   const handleSelect = (memberId: string) => {
@@ -328,191 +316,204 @@ function PresenceForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="animate-fadeIn">
-      <h1 className="text-center text-gray-800 text-lg sm:text-xl my-2 font-semibold">
-        Gestion des présences au culte
-      </h1>
+    <form onSubmit={handleSubmit} className="animate-fadeIn flex flex-col h-full flex-1 justify-between pt-4">
+      
+      <div className={`flex flex-col h-full ${presence !== "Absent" ? "justify-around" : ""}`}>
 
-      <p className="text-center text-gray-500 text-sm mb-5">
-        Marquez votre présence pour le culte d'aujourd'hui.
-      </p>
+          <div className="">
+            <h1 className="text-center text-gray-800 text-lg sm:text-xl my-2 font-semibold">
+              Gestion des présences au culte
+            </h1>
 
-      <div className="space-y-4">
-        {/* Searchable Select */}
-        <div className="relative">
-          <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-            Sélectionnez votre nom
-          </label>
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setIsDropdownOpen(true);
-            }}
-            onFocus={() => setIsDropdownOpen(true)}
-            placeholder="Tapez pour rechercher..."
-            className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none pr-10"
-          />
-          <button
-            type="button"
-            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="absolute right-3 top-[calc(50%+8px)] -translate-y-1/2 text-gray-400 hover:text-gray-600"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className={`w-5 h-5 transition-transform ${
-                isDropdownOpen ? "rotate-180" : ""
-              }`}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M19 9l-7 7-7-7"
-              />
-            </svg>
-          </button>
-
-          {isDropdownOpen && (
-            <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto">
-              {filteredMembers.length === 0 ? (
-                <div className="p-3 text-gray-500 text-sm text-center">
-                  Aucun résultat trouvé
-                </div>
-              ) : (
-                filteredMembers.map((member) => (
-                  <button
-                    key={member.id}
-                    type="button"
-                    onClick={() => handleSelect(member.id.toString())}
-                    className={`w-full text-left px-4 py-2.5 text-sm hover:bg-[#ede7f6] transition-colors ${
-                      member.id.toString() === selectedMemberId
-                        ? "bg-[#ede7f6] text-[#4a2b87] font-medium"
-                        : "text-gray-700"
-                    }`}
-                  >
-                    {member.nom} {member.prenom}
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {selectedPhone && (
-          <div className="bg-[#ede7f6] p-3 rounded-lg border-l-4 border-[#4a2b87] animate-fadeIn">
-            <p className="flex items-center gap-2 text-[#4a2b87] text-sm">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
-                />
-              </svg>
-              <span className="font-medium">{selectedPhone}</span>
+            <p className="text-center text-gray-500 text-sm mb-5">
+              Marquez votre présence pour le culte d'aujourd'hui.
             </p>
           </div>
-        )}
+        <div className="space-y-4">
+          <div className="">
+          {/* <div className="flex gap-1 items-end"> */}
 
-        {/* Presence Status */}
-        <div>
-          <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-            Statut de présence
-          </label>
-          <div className="grid grid-cols-2 gap-3">
-            <label
-              className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                presence === "Présent"
-                  ? "border-[#2e7d32] bg-[#e8f5e9] text-[#2e7d32]"
-                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-              }`}
+            <SearchableSelect
+              label="Sélectionnez votre nom"
+              value={selectedMemberId}
+              options={sortedMembers.map((member) => ({
+                value: member.id.toString(),
+                label: `${member.nom} ${member.prenom}`,
+              }))}
+              onChange={(value) =>handleSelect(value)}
+              placeholder="Tapez pour rechercher..."
+              className="flex-1"
+            />
+            {/* Searchable Select */}
+            
+          {selectedPhone && (
+              <div className="bg-[#ede7f6]  p-1.5 px-3 rounded-lg border-0 mt-1 border-[#4a2b87] animate-fadeIn ">
+                <p className="flex items-center gap-2 text-[#4a2b87] text-sm">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    />
+                  </svg>
+                  <span className="font-medium">{selectedPhone}</span>
+                </p>
+              </div>
+            )}
+
+            {/* {selectedPhone && (
+              <div className="bg-[#ede7f6]  h-12  p-3 py-3.5 rounded-lg border-0 border-[#4a2b87] animate-fadeIn ">
+                <p className="flex items-center gap-2 text-[#4a2b87] text-sm">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-4 h-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"
+                    />
+                  </svg>
+                  <span className="font-medium">{selectedPhone}</span>
+                </p>
+              </div>
+            )}
+            {selectedPhone && (
+              <button
+                type="button"
+                className="ml-0 h-12 w-10 flex items-center justify-center bg-[#ede7f6] text-[#5f3bad] text-xs rounded-lg hover:bg-[#5f3bad]/30 transition-colors"
+                onClick={() => setSelectedMemberId('')}
             >
-              <input
-                type="radio"
-                name="presence"
-                value="Présent"
-                checked={presence === "Présent"}
-                onChange={(e) =>
-                  setPresence(e.target.value as "Présent" | "Absent")
-                }
-                className="sr-only"
-              />
-              <span className="font-medium text-sm">Présent</span>
-            </label>
-            <label
-              className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                presence === "Absent"
-                  ? "border-[#c62828] bg-[#ffebee] text-[#c62828]"
-                  : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-              }`}
-            >
-              <input
-                type="radio"
-                name="presence"
-                value="Absent"
-                checked={presence === "Absent"}
-                onChange={(e) =>
-                  setPresence(e.target.value as "Présent" | "Absent")
-                }
-                className="sr-only"
-              />
-              <span className="font-medium text-sm">Absent</span>
-            </label>
+                <FontAwesomeIcon icon={faX} className="w-4 h-4" />
+              </button>
+            )} */}
           </div>
-        </div>
+          {/* Presence Status */}
+          <div className="flex gap-2 items-end">
+          <div className="flex-1">
+            <label className="block mb-1.5 text-gray-700 font-medium text-sm">
+              Sélectionnez le Culte
+            </label>
+            <select
+              value={culte}
+              onChange={(e) => setCulte(e.target.value)}
+              className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
+            >
+              <option value="">Choisissez le culte</option>
+              <option value="1er culte">1er culte</option>
+              <option value="2ème culte">2ème culte</option>
+              <option value="Autre">Autre</option>
+            </select>
+          </div>
+            <div>
+              <label className="block mb-1.5 text-gray-700 font-medium text-sm">
+                Statut de présence
+              </label>
+              <div className="grid grid-cols-2 gap-1">
+                <label
+                  className={`flex items-center justify-center gap-2 p-3 py-3.5 sm:py-[16.5px] rounded-lg border cursor-pointer transition-all ${presence === "Présent"
+                      ? "border-[#2e7d32] bg-[#e8f5e9] text-[#2e7d32]"
+                      : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="presence"
+                    value="Présent"
+                    checked={presence === "Présent"}
+                    onChange={(e) =>
+                      setPresence(e.target.value as "Présent" | "Absent")
+                    }
+                    className="sr-only"
+                  />
+                  <span className="font-medium text-sm">Présent</span>
+                </label>
+                <label
+                  className={`flex items-center justify-center gap-2 p-3 py-3.5 sm:py-[16.5px] rounded-lg border cursor-pointer transition-all ${presence === "Absent"
+                      ? "border-[#c62828] bg-[#ffebee] text-[#c62828]"
+                      : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                    }`}
+                >
+                  <input
+                    type="radio"
+                    name="presence"
+                    value="Absent"
+                    checked={presence === "Absent"}
+                    onChange={(e) =>
+                      setPresence(e.target.value as "Présent" | "Absent")
+                    }
+                    className="sr-only"
+                  />
+                  <span className="font-medium text-sm">Absent</span>
+                </label>
+              </div>
+            </div>
+            
+          </div>
 
-        {/* Culte Select */}
-        <div>
-          <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-            Sélectionnez le Culte
-          </label>
-          <select
-            value={culte}
-            onChange={(e) => setCulte(e.target.value)}
-            className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
+          {/* Raison d'absence - affiché uniquement si Absent est sélectionné */}
+          {presence === "Absent" && (
+            <div className="animate-fadeIn">
+              <label className="block mb-1.5 text-gray-700 font-medium text-sm">
+                Raison de l'absence <span className="text-[#c62828]">*</span>
+              </label>
+              <textarea
+                value={raisonAbsence}
+                onChange={(e) => setRaisonAbsence(e.target.value)}
+                placeholder="Indiquez la raison de votre absence..."
+                rows={3}
+                className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm sm:text-base transition-all duration-200 focus:border-[#c62828] focus:ring-2 focus:ring-[#c62828]/20 focus:outline-none resize-none"
+              />
+            </div>
+          )}
+          {presence !== "Absent" && (
+            <div className="h-20"	/>
+          )}
+
+          {/* Culte Select */}
+        
+        </div>
+        
+      {/* <div className="h-10"/> */}
+      </div>
+
+
+      <div>
+        <div className="mt-6 space-y-3">
+          <button
+            type="submit"
+            disabled={fetcher.state !== "idle"}
+            className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50"
           >
-            <option value="">Choisissez le culte</option>
-            <option value="1er culte">1er culte</option>
-            <option value="2ème culte">2ème culte</option>
-            <option value="Autre">Autre</option>
-          </select>
+            {fetcher.state !== "idle"
+              ? "Enregistrement..."
+              : "Enregistrer ma présence"}
+          </button>
+
+          <button
+            type="button"
+            onClick={onSwitchToRegister}
+            className="w-full border border-[#c7b8ea] rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-white text-[#4a2b87] hover:bg-gray-50 shadow-sm hover:shadow-md"
+          >
+            Nouveau ? S'inscrire
+          </button>
         </div>
+
+        <p className="mt-5 italic text-[#4a2b87] text-center text-sm bg-[#ede7f6] p-3 rounded-lg">
+          "La maturité pour une pêche abondante en eau profonde." — Luc 5:4
+        </p>
       </div>
-
-      <div className="mt-6 space-y-3">
-        <button
-          type="submit"
-          disabled={fetcher.state !== "idle"}
-          className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50"
-        >
-          {fetcher.state !== "idle"
-            ? "Enregistrement..."
-            : "Enregistrer ma présence"}
-        </button>
-
-        <button
-          type="button"
-          onClick={onSwitchToRegister}
-          className="w-full border border-[#c7b8ea] rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-white text-[#4a2b87] hover:bg-gray-50 shadow-sm hover:shadow-md"
-        >
-          Nouveau ? S'inscrire
-        </button>
-      </div>
-
-      <p className="mt-5 italic text-[#4a2b87] text-center text-sm bg-[#ede7f6] p-3 rounded-lg">
-        "L'Éternel est mon berger : je ne manquerai de rien." — Psaume 23:1
-      </p>
     </form>
   );
 }

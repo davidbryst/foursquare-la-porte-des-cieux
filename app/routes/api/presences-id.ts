@@ -26,6 +26,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     const formData = await request.formData();
     const presence = formData.get("presence") === "true";
     const culteId = parseInt(formData.get("culteId") as string);
+    const pkabsence = formData.get("pkabsence") as string | null;
 
     if (isNaN(culteId)) {
       return Response.json(
@@ -34,7 +35,15 @@ export async function action({ request, params }: Route.ActionArgs) {
       );
     }
 
-    const success = updatePresence(presenceId, presence, culteId);
+    // Si absent et pas de raison, retourner une erreur
+    if (!presence && !pkabsence) {
+      return Response.json(
+        { error: "La raison d'absence est requise" },
+        { status: 400 }
+      );
+    }
+
+    const success = updatePresence(presenceId, presence, culteId, presence ? null : pkabsence);
     if (success) {
       return Response.json({ success: true });
     } else {
@@ -47,5 +56,6 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   return Response.json({ error: "Méthode non autorisée" }, { status: 405 });
 }
+
 
 

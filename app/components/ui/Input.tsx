@@ -10,7 +10,7 @@ export default function Input({ label, className = '', ...props }: InputProps) {
   if (label) {
     return (
       <div>
-        <label className="block mb-1 ml-1.5 text-gray-700 font-bold text-sm text-[#4a2b87] ">
+        <label className="block mb-1.5 text-gray-700 font-medium text-sm">
           {label}
         </label>
         <input className={inputClasses} {...props} />

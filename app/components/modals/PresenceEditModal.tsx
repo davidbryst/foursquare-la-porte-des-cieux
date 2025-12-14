@@ -18,23 +18,32 @@ export default function PresenceEditModal() {
     selectedPresence?.presence === 'Présent' ? 'Présent' : 'Absent'
   );
   const [editCulte, setEditCulte] = useState(selectedPresence?.culte || '1er culte');
+  const [editRaisonAbsence, setEditRaisonAbsence] = useState(selectedPresence?.pkabsence || '');
 
   // Mettre à jour les états locaux quand la présence sélectionnée change
   useEffect(() => {
     if (selectedPresence) {
       setEditPresenceStatus(selectedPresence.presence === 'Présent' ? 'Présent' : 'Absent');
       setEditCulte(selectedPresence.culte || '1er culte');
+      setEditRaisonAbsence(selectedPresence.pkabsence || '');
     }
   }, [selectedPresence]);
 
   const handleSaveEdit = () => {
     if (!selectedPresence) return;
 
+    // Vérifier la raison si absent
+    if (editPresenceStatus === 'Absent' && !editRaisonAbsence.trim()) {
+      alert("Veuillez indiquer la raison de l'absence.");
+      return;
+    }
+
     if (onPresenceSave) {
       onPresenceSave({
         id: selectedPresence.id,
         presenceStatus: editPresenceStatus,
         culte: editCulte,
+        pkabsence: editPresenceStatus === 'Absent' ? editRaisonAbsence.trim() : null,
       });
     }
 
@@ -111,6 +120,22 @@ export default function PresenceEditModal() {
               </label>
             </div>
           </div>
+
+          {/* Raison d'absence - affiché uniquement si Absent est sélectionné */}
+          {editPresenceStatus === 'Absent' && (
+            <div className="animate-fadeIn">
+              <label className="block mb-1.5 text-gray-700 font-medium text-sm">
+                Raison de l'absence <span className="text-[#c62828]">*</span>
+              </label>
+              <textarea
+                value={editRaisonAbsence}
+                onChange={(e) => setEditRaisonAbsence(e.target.value)}
+                placeholder="Indiquez la raison de l'absence..."
+                rows={3}
+                className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#c62828] focus:ring-2 focus:ring-[#c62828]/20 focus:outline-none resize-none"
+              />
+            </div>
+          )}
 
           <div>
             <Select

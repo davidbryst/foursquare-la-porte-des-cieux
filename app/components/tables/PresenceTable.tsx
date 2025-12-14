@@ -52,7 +52,7 @@ export default function PresenceTable({ entries, onDownloadCSV, onEdit, onDelete
     setEditingPresence(null)
   }
 
-  const getPresenceBadge = (presence: string) => {
+  const getPresenceBadge = (presence: string, pkabsence?: string | null) => {
     if (presence === "Présent") {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[#e8f5e9] text-[#2e7d32]">
@@ -61,16 +61,23 @@ export default function PresenceTable({ entries, onDownloadCSV, onEdit, onDelete
       )
     }
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[#ffebee] text-[#c62828]">
-        Absent
-      </span>
+      <div className="flex flex-col items-center gap-1">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[#ffebee] text-[#c62828]">
+          Absent
+        </span>
+        {pkabsence && (
+          <span className="text-xs text-gray-500 italic max-w-[150px] truncate" title={pkabsence}>
+            {pkabsence}
+          </span>
+        )}
+      </div>
     )
   }
 
   return (
     <div className="animate-fadeIn flex flex-col h-full min-h-0">
       {/* Filtres */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3 flex-shrink-0">
+      <div className="grid grid-cols-1 gap-3 mb-3 flex-shrink-0">
         <Input
           type="text"
           value={searchName}
@@ -203,7 +210,7 @@ export default function PresenceTable({ entries, onDownloadCSV, onEdit, onDelete
                   >
                     <td className="py-3 px-4 text-gray-800">{e.nom || "N/A"}</td>
                     <td className="py-3 px-4 text-gray-600 font-mono text-sm">{e.telephone || "N/A"}</td>
-                    <td className="py-3 px-4 text-center">{getPresenceBadge(e.presence)}</td>
+                    <td className="py-3 px-4 text-center">{getPresenceBadge(e.presence, e.pkabsence)}</td>
                     <td className="py-3 px-4 text-center">
                       <span className="px-2 py-0.5 rounded text-xs font-medium bg-[#ede7f6] text-[#4a2b87]">
                         {e.culte || "N/A"}
@@ -263,7 +270,7 @@ export default function PresenceTable({ entries, onDownloadCSV, onEdit, onDelete
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {getPresenceBadge(e.presence)}
+                  {getPresenceBadge(e.presence, e.pkabsence)}
                   {(onEdit || onDelete) && (
                     <div className="flex gap-1">
                       {onEdit && (

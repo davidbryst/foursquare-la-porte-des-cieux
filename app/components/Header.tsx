@@ -1,5 +1,4 @@
 import { Link, useLocation } from 'react-router'
-import Button from '~/components/ui/Button'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faHome, faChartBar, faSignOutAlt } from '@fortawesome/free-solid-svg-icons';
 
@@ -12,30 +11,52 @@ export default function Header({ onLogout, showLogout = false }: HeaderProps) {
   const location = useLocation();
   const isOnHome = location.pathname === '/';
 
-  const navLinkClass = "inline-flex items-center gap-2 px-3 sm:px-4 py-2 sm:py-1.5 text-xs sm:text-sm font-semibold bg-[#4a2b87] text-white no-underline rounded-lg transition-all hover:bg-[#5a3b97] active:bg-[#3a2070] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#4a2b87] shadow-md hover:shadow-lg";
+  // Style commun pour les boutons/liens (aligné avec le composant Button)
+  const baseButtonStyles = `
+    inline-flex items-center justify-center gap-2
+    border-none rounded-lg
+    py-3 px-5 sm:py-2 sm:px-3
+    font-medium text-sm sm:text-sm
+    cursor-pointer transition-all duration-200
+    active:scale-[0.98]
+    shadow-sm hover:shadow-md
+    focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[#7c3aed]
+    no-underline
+  `;
+
+  // Style pour le bouton principal (violet)
+  const primaryLinkClass = `
+    ${baseButtonStyles}
+    bg-[#4a2b87] text-white hover:bg-[#3a2070]
+  `;
+
+  // Style pour le bouton de déconnexion (rouge)
+  const logoutButtonClass = `
+    ${baseButtonStyles}
+    bg-[#d32f2f] text-white hover:bg-[#b71c1c]
+  `;
 
   return (
     <header className="relative mb-0 flex items-center justify-between">
       {/* Bouton gauche */}
       <div className="flex-1">
-        {isOnHome && (
+        {isOnHome ? (
           <Link
             to="/dashboard"
             target="_blank"
-            className={navLinkClass}
+            className={primaryLinkClass}
           >
-            <FontAwesomeIcon icon={faChartBar} className="w-4 h-4" />
+            <FontAwesomeIcon icon={faChartBar} className="w-4 h-4 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Dashboard</span>
           </Link>
-        )}
-        {!isOnHome && (
+        ) : (
           <Link
             to="/"
-            target="_blank"
-            className={navLinkClass}
+            // target="_blank"
+            className={primaryLinkClass}
             aria-label="Retour à l'accueil"
           >
-            <FontAwesomeIcon icon={faHome} className="w-4 h-4" />
+            <FontAwesomeIcon icon={faHome} className="w-4 h-4 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Accueil</span>
           </Link>
         )}
@@ -43,7 +64,7 @@ export default function Header({ onLogout, showLogout = false }: HeaderProps) {
 
       {/* Logo - centré */}
       <img
-        className="logo w-12 sm:w-14 md:w-16 inline-block flex-shrink-0 mx-2"
+        className="logo w-12 sm:w-14 md:w-16 inline-block flex-shrink-0 mx-2 drop-shadow-md hover:drop-shadow-lg transition-all duration-300"
         src="https://image2url.com/images/1764243038241-9886220a-7dd9-4dc5-a8e7-8ded2d536163.png"
         alt="Logo"
       />
@@ -53,11 +74,11 @@ export default function Header({ onLogout, showLogout = false }: HeaderProps) {
         {showLogout && onLogout && (
           <button
             onClick={onLogout}
-            className={navLinkClass.replace("bg-[#4a2b87]", "bg-[#dc2626]").replace("hover:bg-[#5a3b97]", "hover:bg-[#ef4444]").replace("active:bg-[#3a2070]", "active:bg-[#991b1b]").replace("focus:ring-[#4a2b87]", "focus:ring-[#dc2626]")}
+            className={logoutButtonClass}
             type="button"
             aria-label="Déconnexion"
           >
-            <FontAwesomeIcon icon={faSignOutAlt} className="w-4 h-4" />
+            <FontAwesomeIcon icon={faSignOutAlt} className="w-4 h-4 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Déconnexion</span>
           </button>
         )}

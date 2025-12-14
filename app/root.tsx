@@ -44,14 +44,16 @@ export const links: Route.LinksFunction = () => [
 
 export function Layout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="fr">
-      <head>
+    <html lang="fr" suppressHydrationWarning>
+      <head suppressHydrationWarning>
         <meta charSet="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+        {/* Tailwind CSS Play CDN - doit être un script, pas un stylesheet */}
+        <script src="https://cdn.tailwindcss.com"></script>
         <Meta />
         <Links />
       </head>
-      <body>
+      <body suppressHydrationWarning>
           {children}
           {/* Inline script: provide functions to lock/unlock page scrolling */}
           <script

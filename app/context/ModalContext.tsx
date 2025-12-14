@@ -12,6 +12,7 @@ type PresenceSavePayload = {
   id: number;
   presenceStatus: 'Présent' | 'Absent';
   culte: string;
+  pkabsence?: string | null;
 };
 
 type ModalContextType = {
