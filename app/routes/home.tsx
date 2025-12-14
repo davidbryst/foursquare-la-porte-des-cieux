@@ -16,7 +16,7 @@ export function meta({ }: Route.MetaArgs) {
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
-  const members = getAllMembers();
+  const members = await getAllMembers();
   return { members };
 }
 

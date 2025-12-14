@@ -3,7 +3,7 @@ import type { Route } from "./+types/members";
 
 // GET /api/members - Récupérer tous les membres
 export async function loader({ request }: Route.LoaderArgs) {
-  const members = getAllMembers();
+  const members = await getAllMembers();
   return Response.json({ members });
 }
 
@@ -23,7 +23,7 @@ export async function action({ request }: Route.ActionArgs) {
   }
 
   // Vérifier si le membre existe déjà
-  const existingMember = getMemberByNameAndPrenom(nom, prenom);
+  const existingMember = await getMemberByNameAndPrenom(nom, prenom);
   if (existingMember) {
     return Response.json(
       { error: "Ce membre existe déjà", exists: true },
@@ -31,8 +31,7 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 
-
-  const memberId = addMember(nom, prenom, numero, dateDeNaissance);
+  const memberId = await addMember(nom, prenom, numero, dateDeNaissance);
 
   if (memberId) {
     return Response.json({ success: true, memberId });
@@ -43,6 +42,3 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 }
-
-
-

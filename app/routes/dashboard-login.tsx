@@ -31,7 +31,7 @@ export async function action({ request }: Route.ActionArgs) {
     return { error: "Veuillez remplir tous les champs" };
   }
 
-  const admin = loginAdmin(username, password);
+  const admin = await loginAdmin(username, password);
 
   if (admin) {
     return createUserSession(admin.username, "/dashboard");

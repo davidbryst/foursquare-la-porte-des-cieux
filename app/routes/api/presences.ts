@@ -3,7 +3,7 @@ import type { Route } from "./+types/presences";
 
 // GET - Récupérer toutes les présences
 export async function loader({ request }: Route.LoaderArgs) {
-  const presences = getAllPresences();
+  const presences = await getAllPresences();
   return Response.json({ presences });
 }
 
@@ -24,7 +24,7 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 
-  const success = addPresence(memberId, culteId, presence, date, pkabsence || null);
+  const success = await addPresence(memberId, culteId, presence, date, pkabsence || null);
 
   if (success) {
     return Response.json({ success: true });
@@ -35,5 +35,3 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 }
-
-

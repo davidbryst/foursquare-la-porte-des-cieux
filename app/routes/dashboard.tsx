@@ -12,8 +12,8 @@ export function meta({ }: Route.MetaArgs) {
 export async function loader({ request }: Route.LoaderArgs) {
   await requireUser(request);
 
-  const members = getAllMembers();
-  const presences = getAllPresences();
+  const members = await getAllMembers();
+  const presences = await getAllPresences();
 
   return { members, presences };
 }

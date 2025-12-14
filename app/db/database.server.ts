@@ -1,6 +1,4 @@
-import Database from "better-sqlite3";
-import path from "path";
-import fs from "fs";
+import { createClient, type Client } from "@libsql/client";
 
 // Types
 export interface Member {
@@ -28,33 +26,33 @@ export interface Admin {
 }
 
 // Singleton database instance
-let db: Database.Database | null = null;
+let db: Client | null = null;
 
-function getDbPath(): string {
-  // Créer le dossier data s'il n'existe pas
-  const dataDir = path.join(process.cwd(), "data");
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-  }
-  return path.join(dataDir, "data.db");
-}
-
-export function getDb(): Database.Database {
+export function getDb(): Client {
   if (!db) {
-    const dbPath = getDbPath();
-    console.log("Ouverture de la base de données:", dbPath);
-    db = new Database(dbPath);
-    db.pragma("journal_mode = WAL");
+    const url = process.env.TURSO_DATABASE_URL;
+    const authToken = process.env.TURSO_AUTH_TOKEN;
+
+    if (!url) {
+      throw new Error("TURSO_DATABASE_URL is not defined");
+    }
+
+    db = createClient({
+      url,
+      authToken,
+    });
+
+    // Initialize tables
     initTables();
   }
   return db;
 }
 
-function initTables(): void {
-  const database = db!;
+async function initTables(): Promise<void> {
+  const database = getDb();
 
   // Créer les tables
-  database.exec(`
+  await database.executeMultiple(`
     CREATE TABLE IF NOT EXISTS "membre" (
       "id" INTEGER NOT NULL UNIQUE,
       "nom" TEXT NOT NULL,
@@ -94,42 +92,40 @@ function initTables(): void {
   `);
 
   // Créer l'admin par défaut s'il n'existe pas
-  const adminCount = database
-    .prepare("SELECT COUNT(*) as count FROM admin")
-    .get() as { count: number };
+  const adminCount = await database.execute("SELECT COUNT(*) as count FROM admin");
+  const count = (adminCount.rows[0] as any)?.count || 0;
 
-  if (adminCount.count === 0) {
-    database
-      .prepare("INSERT INTO admin (username, password) VALUES (?, ?)")
-      .run("Culte", "Culte@Pr0t3ction");
+  if (count === 0) {
+    await database.execute({
+      sql: "INSERT INTO admin (username, password) VALUES (?, ?)",
+      args: ["Culte", "Culte@Pr0t3ction"],
+    });
     console.log("Admin par défaut créé");
   }
 }
 
 // === MEMBRES ===
 
-export function getAllMembers(): Member[] {
+export async function getAllMembers(): Promise<Member[]> {
   const database = getDb();
-  return database
-    .prepare(
-      "SELECT id, nom, prenom, numero, dateDeNaissance FROM membre WHERE nom IS NOT NULL AND prenom IS NOT NULL"
-    )
-    .all() as Member[];
+  const result = await database.execute(
+    "SELECT id, nom, prenom, numero, dateDeNaissance FROM membre WHERE nom IS NOT NULL AND prenom IS NOT NULL"
+  );
+  return result.rows as unknown as Member[];
 }
 
-export function addMember(
+export async function addMember(
   nom: string,
   prenom: string,
   numero: string | null,
   dateDeNaissance: string
-): number | null {
+): Promise<number | null> {
   const database = getDb();
   try {
-    const result = database
-      .prepare(
-        "INSERT INTO membre (nom, prenom, numero, dateDeNaissance) VALUES (?, ?, ?, ?)"
-      )
-      .run(nom.trim(), prenom.trim(), numero || null, dateDeNaissance);
+    const result = await database.execute({
+      sql: "INSERT INTO membre (nom, prenom, numero, dateDeNaissance) VALUES (?, ?, ?, ?)",
+      args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance],
+    });
     console.log("Nouveau membre ajouté avec ID:", result.lastInsertRowid);
     return Number(result.lastInsertRowid);
   } catch (e) {
@@ -138,20 +134,19 @@ export function addMember(
   }
 }
 
-export function updateMember(
+export async function updateMember(
   memberId: number,
   nom: string,
   prenom: string,
   numero: string | null,
   dateDeNaissance: string
-): boolean {
+): Promise<boolean> {
   const database = getDb();
   try {
-    database
-      .prepare(
-        "UPDATE membre SET nom = ?, prenom = ?, numero = ?, dateDeNaissance = ? WHERE id = ?"
-      )
-      .run(nom.trim(), prenom.trim(), numero || null, dateDeNaissance, memberId);
+    await database.execute({
+      sql: "UPDATE membre SET nom = ?, prenom = ?, numero = ?, dateDeNaissance = ? WHERE id = ?",
+      args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, memberId],
+    });
     return true;
   } catch (e) {
     console.error("Erreur lors de la modification du membre:", e);
@@ -160,43 +155,46 @@ export function updateMember(
 }
 
 // === HELPER: Reset SQLite sequence after deletion ===
-function resetTableSequence(tableName: string, nb: number = 1): void {
+async function resetTableSequence(tableName: string, nb: number = 1): Promise<void> {
   const database = getDb();
   try {
-    // Décrémente la séquence de 'nb', sans dépasser zéro (CAST en INTEGER)
-    database
-      .prepare(`
-        UPDATE sqlite_sequence 
-        SET seq = CAST(CASE WHEN seq > (:nb - 1) THEN seq - :nb ELSE 0 END AS INTEGER)
-        WHERE name = :tableName
-      `)
-      .run({ tableName, nb: Math.floor(nb) });
+    await database.execute({
+      sql: `UPDATE sqlite_sequence SET seq = CAST(CASE WHEN seq > (? - 1) THEN seq - ? ELSE 0 END AS INTEGER) WHERE name = ?`,
+      args: [Math.floor(nb), Math.floor(nb), tableName],
+    });
   } catch (e) {
     console.warn(`Warning: Could not reset sequence for table ${tableName}:`, e);
   }
 }
 
-export function deleteMember(memberId: number): boolean {
+export async function deleteMember(memberId: number): Promise<boolean> {
   const database = getDb();
   try {
     // Compter les présences AVANT de les supprimer
-    const presenceCount = database
-      .prepare("SELECT COUNT(*) as count FROM presence WHERE member = ?")
-      .get(memberId) as { count: number };
-    const nbPresences = presenceCount?.count || 0;
-    
+    const presenceCountResult = await database.execute({
+      sql: "SELECT COUNT(*) as count FROM presence WHERE member = ?",
+      args: [memberId],
+    });
+    const nbPresences = (presenceCountResult.rows[0] as any)?.count || 0;
+
     // Supprimer les présences associées
-    database.prepare("DELETE FROM presence WHERE member = ?").run(memberId);
-    
+    await database.execute({
+      sql: "DELETE FROM presence WHERE member = ?",
+      args: [memberId],
+    });
+
     // Supprimer le membre
-    database.prepare("DELETE FROM membre WHERE id = ?").run(memberId);
-    
+    await database.execute({
+      sql: "DELETE FROM membre WHERE id = ?",
+      args: [memberId],
+    });
+
     // Reset les séquences
-    resetTableSequence("membre", 1);
+    await resetTableSequence("membre", 1);
     if (nbPresences > 0) {
-      resetTableSequence("presence", nbPresences);
+      await resetTableSequence("presence", nbPresences);
     }
-    
+
     return true;
   } catch (e) {
     console.error("Erreur lors de la suppression du membre:", e);
@@ -204,25 +202,23 @@ export function deleteMember(memberId: number): boolean {
   }
 }
 
-export function getMemberByNameAndPrenom(
+export async function getMemberByNameAndPrenom(
   nom: string,
   prenom: string
-): Member | null {
+): Promise<Member | null> {
   const database = getDb();
-  return (
-    (database
-      .prepare("SELECT * FROM membre WHERE LOWER(nom) = LOWER(?) AND LOWER(prenom) = LOWER(?)")
-      .get(nom, prenom) as Member) || null
-  );
+  const result = await database.execute({
+    sql: "SELECT * FROM membre WHERE LOWER(nom) = LOWER(?) AND LOWER(prenom) = LOWER(?)",
+    args: [nom, prenom],
+  });
+  return (result.rows[0] as unknown as Member) || null;
 }
 
 // === PRESENCES ===
 
-export function getAllPresences(): Presence[] {
+export async function getAllPresences(): Promise<Presence[]> {
   const database = getDb();
-  const rows = database
-    .prepare(
-      `
+  const result = await database.execute(`
     SELECT 
       p.id,
       p.member,
@@ -236,11 +232,9 @@ export function getAllPresences(): Presence[] {
     FROM presence p
     JOIN membre m ON p.member = m.id
     ORDER BY p.date DESC, m.nom, m.prenom
-  `
-    )
-    .all() as any[];
+  `);
 
-  return rows.map((row) => {
+  return result.rows.map((row: any) => {
     const nomComplet = `${row.nom || ""} ${row.prenom || ""}`.trim();
     const culteLabel =
       row.culteId === 1
@@ -261,41 +255,39 @@ export function getAllPresences(): Presence[] {
   });
 }
 
-export function checkPresenceExists(
+export async function checkPresenceExists(
   memberId: number,
   culteId: number,
   date: string
-): boolean {
+): Promise<boolean> {
   const database = getDb();
-  const result = database
-    .prepare(
-      "SELECT COUNT(*) as count FROM presence WHERE member = ? AND culte = ? AND date = ?"
-    )
-    .get(memberId, culteId, date) as { count: number };
-  return result.count > 0;
+  const result = await database.execute({
+    sql: "SELECT COUNT(*) as count FROM presence WHERE member = ? AND culte = ? AND date = ?",
+    args: [memberId, culteId, date],
+  });
+  return ((result.rows[0] as any)?.count || 0) > 0;
 }
 
-export function addPresence(
+export async function addPresence(
   memberId: number,
   culteId: number,
   presence: boolean,
   date: string,
   pkabsence: string | null = null
-): boolean {
+): Promise<boolean> {
   const database = getDb();
 
   // Vérifier si une présence existe déjà
-  if (checkPresenceExists(memberId, culteId, date)) {
+  if (await checkPresenceExists(memberId, culteId, date)) {
     console.log("Présence déjà enregistrée pour ce membre/culte/date");
     return false;
   }
 
   try {
-    database
-      .prepare(
-        "INSERT INTO presence (member, culte, presence, date, pkabsence) VALUES (?, ?, ?, ?, ?)"
-      )
-      .run(memberId, culteId, presence ? 1 : 0, date, pkabsence || null);
+    await database.execute({
+      sql: "INSERT INTO presence (member, culte, presence, date, pkabsence) VALUES (?, ?, ?, ?, ?)",
+      args: [memberId, culteId, presence ? 1 : 0, date, pkabsence || null],
+    });
     console.log("Présence ajoutée:", { memberId, culteId, presence, date });
     return true;
   } catch (e) {
@@ -304,17 +296,18 @@ export function addPresence(
   }
 }
 
-export function updatePresence(
+export async function updatePresence(
   presenceId: number,
   presence: boolean,
   culteId: number,
   pkabsence: string | null = null
-): boolean {
+): Promise<boolean> {
   const database = getDb();
   try {
-    database
-      .prepare("UPDATE presence SET presence = ?, culte = ?, pkabsence = ? WHERE id = ?")
-      .run(presence ? 1 : 0, culteId, pkabsence, presenceId);
+    await database.execute({
+      sql: "UPDATE presence SET presence = ?, culte = ?, pkabsence = ? WHERE id = ?",
+      args: [presence ? 1 : 0, culteId, pkabsence, presenceId],
+    });
     return true;
   } catch (e) {
     console.error("Erreur lors de la modification de la présence:", e);
@@ -322,12 +315,15 @@ export function updatePresence(
   }
 }
 
-export function deletePresence(presenceId: number): boolean {
+export async function deletePresence(presenceId: number): Promise<boolean> {
   const database = getDb();
   try {
-    database.prepare("DELETE FROM presence WHERE id = ?").run(presenceId);
+    await database.execute({
+      sql: "DELETE FROM presence WHERE id = ?",
+      args: [presenceId],
+    });
     // Reset the sqlite_sequence for presence table
-    resetTableSequence("presence");
+    await resetTableSequence("presence");
     return true;
   } catch (e) {
     console.error("Erreur lors de la suppression de la présence:", e);
@@ -337,34 +333,33 @@ export function deletePresence(presenceId: number): boolean {
 
 // === ADMIN ===
 
-export function loginAdmin(
+export async function loginAdmin(
   username: string,
   password: string
-): Admin | null {
+): Promise<Admin | null> {
   const database = getDb();
   try {
-    const admin = database
-      .prepare("SELECT * FROM admin WHERE username = ? AND password = ?")
-      .get(username.trim(), password) as Admin | undefined;
-    return admin || null;
+    const result = await database.execute({
+      sql: "SELECT * FROM admin WHERE username = ? AND password = ?",
+      args: [username.trim(), password],
+    });
+    return (result.rows[0] as unknown as Admin) || null;
   } catch (e) {
     console.error("Erreur lors de la connexion:", e);
     return null;
   }
 }
 
-export function checkAdminExists(username: string): boolean {
+export async function checkAdminExists(username: string): Promise<boolean> {
   const database = getDb();
   try {
-    const result = database
-      .prepare("SELECT id FROM admin WHERE username = ?")
-      .get(username.trim());
-    return !!result;
+    const result = await database.execute({
+      sql: "SELECT id FROM admin WHERE username = ?",
+      args: [username.trim()],
+    });
+    return result.rows.length > 0;
   } catch (e) {
     console.error("Erreur lors de la vérification de l'admin:", e);
     return false;
   }
 }
-
-
-

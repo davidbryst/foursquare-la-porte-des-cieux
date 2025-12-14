@@ -11,7 +11,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (request.method === "DELETE") {
-    const success = deletePresence(presenceId);
+    const success = await deletePresence(presenceId);
     if (success) {
       return Response.json({ success: true });
     } else {
@@ -43,7 +43,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       );
     }
 
-    const success = updatePresence(presenceId, presence, culteId, presence ? null : pkabsence);
+    const success = await updatePresence(presenceId, presence, culteId, presence ? null : pkabsence);
     if (success) {
       return Response.json({ success: true });
     } else {
@@ -56,6 +56,3 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   return Response.json({ error: "Méthode non autorisée" }, { status: 405 });
 }
-
-
-

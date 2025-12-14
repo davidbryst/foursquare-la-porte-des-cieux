@@ -11,7 +11,7 @@ export async function action({ request, params }: Route.ActionArgs) {
   }
 
   if (request.method === "DELETE") {
-    const success = deleteMember(memberId);
+    const success = await deleteMember(memberId);
     if (success) {
       return Response.json({ success: true });
     } else {
@@ -36,7 +36,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       );
     }
 
-    const success = updateMember(memberId, nom, prenom, numero, dateDeNaissance);
+    const success = await updateMember(memberId, nom, prenom, numero, dateDeNaissance);
     if (success) {
       return Response.json({ success: true });
     } else {
@@ -49,6 +49,3 @@ export async function action({ request, params }: Route.ActionArgs) {
 
   return Response.json({ error: "Méthode non autorisée" }, { status: 405 });
 }
-
-
-
