@@ -7,6 +7,8 @@ import Header from "~/components/Header";
 import SearchableSelect from "~/components/ui/SearchableSelect";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
 import { faX } from "@fortawesome/free-solid-svg-icons";
+import { useToast } from "~/context/ToastContext";
+import { Spinner } from "~/components/ui/Toast";
 
 export function meta({ }: Route.MetaArgs) {
   return [
@@ -24,7 +26,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
   const { members: initialMembers } = loaderData;
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [showPresence, setShowPresence] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
+  const { showToast } = useToast();
 
   const memberFetcher = useFetcher();
   const presenceFetcher = useFetcher();
@@ -32,6 +34,7 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
   // Recharger les membres après ajout
   useEffect(() => {
     if (memberFetcher.data?.success) {
+      showToast("Membre enregistré avec succès !", "success");
       // Recharger la liste des membres
       fetch("/api/members")
         .then((res) => res.json())
@@ -41,18 +44,23 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
         });
     }
     if (memberFetcher.data?.exists) {
-      alert("Ce membre existe déjà. Vous êtes déjà enregistré !");
+      showToast("Ce membre existe déjà. Vous êtes déjà enregistré !", "warning");
       setShowPresence(true);
+    }
+    if (memberFetcher.data?.error && !memberFetcher.data?.exists) {
+      showToast(memberFetcher.data.error, "error");
     }
   }, [memberFetcher.data]);
 
   useEffect(() => {
     if (presenceFetcher.data?.success) {
-      setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 2000);
+      showToast("Présence enregistrée avec succès !", "success");
     }
     if (presenceFetcher.data?.duplicate) {
-      alert("Vous avez déjà enregistré votre présence pour ce culte aujourd'hui !");
+      showToast("Vous avez déjà enregistré votre présence pour ce culte aujourd'hui !", "warning");
+    }
+    if (presenceFetcher.data?.error && !presenceFetcher.data?.duplicate) {
+      showToast(presenceFetcher.data.error, "error");
     }
   }, [presenceFetcher.data]);
 
@@ -76,30 +84,6 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
         </div>
       </div>
 
-      {/* Success Modal */}
-      {showSuccess && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 pointer-events-none">
-          <div className="bg-green-500 text-white px-8 py-4 rounded-lg shadow-xl animate-fadeIn">
-            <div className="flex items-center gap-3">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="w-8 h-8"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              <span className="text-lg font-medium">Présence enregistrée !</span>
-            </div>
-          </div>
-        </div>
-      )}
     </section>
   );
 }
@@ -116,19 +100,21 @@ function MemberForm({
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
   const [phone, setPhone] = useState("");
+  const { showToast } = useToast();
+  const isSubmitting = fetcher.state !== "idle";
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!nom.trim()) {
-      alert("Remplis le nom.");
+      showToast("Veuillez remplir le nom.", "error");
       return;
     }
     if (!prenom.trim()) {
-      alert("Remplis le prénom.");
+      showToast("Veuillez remplir le prénom.", "error");
       return;
     }
     if (!phone.trim()) {
-      alert("Remplis le numéro de téléphone.");
+      showToast("Veuillez remplir le numéro de téléphone.", "error");
       return;
     }
 
@@ -203,10 +189,17 @@ function MemberForm({
         <div className="mt-6 space-y-3">
           <button
             type="submit"
-            disabled={fetcher.state !== "idle"}
-            className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50"
+            disabled={isSubmitting}
+            className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {fetcher.state !== "idle" ? "Enregistrement..." : "Enregistrer"}
+            {isSubmitting ? (
+              <>
+                <Spinner className="border-white/30 border-t-white" />
+                <span>Enregistrement...</span>
+              </>
+            ) : (
+              "Enregistrer"
+            )}
           </button>
 
           <button
@@ -243,6 +236,8 @@ function PresenceForm({
   const [search, setSearch] = useState("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [raisonAbsence, setRaisonAbsence] = useState("");
+  const { showToast } = useToast();
+  const isSubmitting = fetcher.state !== "idle";
 
   const sortedMembers = [...members].sort((a, b) => {
     const nameA = `${a.nom} ${a.prenom}`.trim();
@@ -269,21 +264,21 @@ function PresenceForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedMemberId) {
-      alert("Choisis un nom.");
+      showToast("Veuillez choisir un nom.", "error");
       return;
     }
     if (!presence) {
-      alert("Choisis Présent ou Absent.");
+      showToast("Veuillez choisir Présent ou Absent.", "error");
       return;
     }
     if (!culte) {
-      alert("Choisis le culte.");
+      showToast("Veuillez choisir le culte.", "error");
       return;
     }
 
     // Vérifier la raison si absent
     if (presence === "Absent" && !raisonAbsence.trim()) {
-      alert("Veuillez indiquer la raison de votre absence.");
+      showToast("Veuillez indiquer la raison de votre absence.", "error");
       return;
     }
 
@@ -493,12 +488,17 @@ function PresenceForm({
         <div className="mt-6 space-y-3">
           <button
             type="submit"
-            disabled={fetcher.state !== "idle"}
-            className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50"
+            disabled={isSubmitting}
+            className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50 flex items-center justify-center gap-2"
           >
-            {fetcher.state !== "idle"
-              ? "Enregistrement..."
-              : "Enregistrer ma présence"}
+            {isSubmitting ? (
+              <>
+                <Spinner className="border-white/30 border-t-white" />
+                <span>Enregistrement...</span>
+              </>
+            ) : (
+              "Enregistrer ma présence"
+            )}
           </button>
 
           <button

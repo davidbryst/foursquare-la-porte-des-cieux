@@ -4,6 +4,8 @@ import Input from '../ui/Input';
 import Button from '../ui/Button';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faPencil } from '@fortawesome/free-solid-svg-icons';
+import { useToast } from '~/context/ToastContext';
+import { Spinner } from '../ui/Toast';
 
 export default function MemberEditModal() {
   const { 
@@ -16,6 +18,8 @@ export default function MemberEditModal() {
   const [editNom, setEditNom] = useState(selectedMember?.nom || '');
   const [editPrenom, setEditPrenom] = useState(selectedMember?.prenom || '');
   const [editNumero, setEditNumero] = useState(selectedMember?.numero || '');
+  const [isLoading, setIsLoading] = useState(false);
+  const { showToast } = useToast();
 
   // Mettre à jour les états locaux quand le membre sélectionné change
   useEffect(() => {
@@ -23,16 +27,19 @@ export default function MemberEditModal() {
       setEditNom(selectedMember.nom || '');
       setEditPrenom(selectedMember.prenom || '');
       setEditNumero(selectedMember.numero || '');
+      setIsLoading(false); // Reset loading state when opening modal
     }
   }, [selectedMember]);
 
   const handleSaveEdit = () => {
     if (!selectedMember) return;
     if (!editNom.trim() || !editPrenom.trim()) {
-      alert("Le nom et le prénom sont obligatoires.");
+      showToast("Le nom et le prénom sont obligatoires.", "error");
       return;
     }
 
+    setIsLoading(true);
+    
     if (onMemberSave) {
       onMemberSave({
         id: selectedMember.id,
@@ -41,15 +48,14 @@ export default function MemberEditModal() {
         numero: editNumero.trim(),
       });
     }
-
-    closeMemberModal();
+    // Ne pas fermer la modale ici - le dashboard le fera après succès
   };
 
   if (!isMemberModalOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4 animate-fadeIn overflow-auto" onClick={closeMemberModal}>
-      <div className="bg-white rounded-lg p-5 w-full max-w-3xl my-8 shadow-xl animate-slideIn">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4 animate-fadeIn overflow-auto min-h-screen min-w-full" onClick={isLoading ? undefined : closeMemberModal}>
+      <div className="bg-white rounded-2xl p-5 w-full max-w-3xl my-8 mx-2 shadow-xl animate-slideIn" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between text-white px-5 py-4 -m-5 mb-5 rounded-t-lg ">
           <h2 className="text-lg sm:text-xl font-semibold flex items-center gap-2 text-[#4a2b87]">
             <FontAwesomeIcon icon={faPencil} className="w-5 h-5" />
@@ -57,7 +63,8 @@ export default function MemberEditModal() {
           </h2>
           <button
             onClick={closeMemberModal}
-            className="text-[#4a2b87] hover:text-[#5a3b97] text-2xl leading-none"
+            disabled={isLoading}
+            className="text-[#4a2b87] hover:text-[#5a3b97] text-2xl leading-none disabled:opacity-50"
             aria-label="Fermer"
           >
             ✕
@@ -71,6 +78,7 @@ export default function MemberEditModal() {
             value={editNom}
             onChange={(e) => setEditNom(e.target.value)}
             className="mb-3"
+            disabled={isLoading}
           />
           
           <Input
@@ -79,6 +87,7 @@ export default function MemberEditModal() {
             value={editPrenom}
             onChange={(e) => setEditPrenom(e.target.value)}
             className="mb-3"
+            disabled={isLoading}
           />
           
           <Input
@@ -87,13 +96,21 @@ export default function MemberEditModal() {
             value={editNumero}
             onChange={(e) => setEditNumero(e.target.value)}
             className="mb-4"
+            disabled={isLoading}
           />
           
           <div className="flex gap-3 mt-6">
-            <Button onClick={handleSaveEdit} fullWidth>
-              Enregistrer
+            <Button onClick={handleSaveEdit} fullWidth disabled={isLoading}>
+              {isLoading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <Spinner className="border-white/30 border-t-white" />
+                  Enregistrement...
+                </span>
+              ) : (
+                "Enregistrer"
+              )}
             </Button>
-            <Button onClick={closeMemberModal} variant="secondary" fullWidth>
+            <Button onClick={closeMemberModal} variant="secondary" fullWidth disabled={isLoading} className="ring-1 ring-[#c7b8ea] text-[#4a2b87]">
               Annuler
             </Button>
           </div>

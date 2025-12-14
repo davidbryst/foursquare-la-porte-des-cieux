@@ -12,8 +12,10 @@ import { faExclamationTriangle } from '@fortawesome/free-solid-svg-icons';
 import type { Route } from "./+types/root";
 import "./app.css";
 import { ModalProvider } from "~/context/ModalContext";
+import { ToastProvider } from "~/context/ToastContext";
 import MemberEditModal from "~/components/modals/MemberEditModal";
 import PresenceEditModal from "~/components/modals/PresenceEditModal";
+import ToastContainer from "~/components/ui/Toast";
 
 export const links: Route.LinksFunction = () => [
   { rel: "preconnect", href: "https://fonts.googleapis.com" },
@@ -34,11 +36,11 @@ export const links: Route.LinksFunction = () => [
   // Favicon declarations to prevent 404 errors
   {
     rel: "icon",
-    href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🙏</text></svg>",
+    href: "https://image2url.com/images/1764243038241-9886220a-7dd9-4dc5-a8e7-8ded2d536163.png",
   },
   {
     rel: "apple-touch-icon",
-    href: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🙏</text></svg>",
+    href: "https://image2url.com/images/1764243038241-9886220a-7dd9-4dc5-a8e7-8ded2d536163.png",
   },
 ];
 
@@ -125,11 +127,14 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
 export default function App() {
   return (
-    <ModalProvider>
-      <Outlet />
-      <MemberEditModal />
-      <PresenceEditModal />
-    </ModalProvider>
+    <ToastProvider>
+      <ModalProvider>
+        <Outlet />
+        <MemberEditModal />
+        <PresenceEditModal />
+        <ToastContainer />
+      </ModalProvider>
+    </ToastProvider>
   );
 }
 

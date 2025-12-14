@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { Link, useFetcher, useLoaderData, useRevalidator } from "react-router";
+import { Link, useFetcher, useRevalidator } from "react-router";
 import type { Route } from "./+types/dashboard";
 import { getAllMembers, getAllPresences } from "~/db/database.server";
 import { requireUser } from "~/utils/session.server";
 import type { Member, Presence } from "~/db/database.server";
+import { useToast } from "~/context/ToastContext";
+import { useModal } from "~/context/ModalContext";
+import { Spinner } from "~/components/ui/Toast";
 
 export function meta({ }: Route.MetaArgs) {
   return [{ title: "Dashboard - Présence Culte" }];
@@ -134,20 +137,51 @@ function MemberTable({
   onDataChange: () => void;
 }) {
   const [searchMember, setSearchMember] = useState("");
-  const [editingMember, setEditingMember] = useState<Member | null>(null);
-  const [editNom, setEditNom] = useState("");
-  const [editPrenom, setEditPrenom] = useState("");
-  const [editNumero, setEditNumero] = useState("");
+  const [deletingMemberId, setDeletingMemberId] = useState<number | null>(null);
+  const { showToast } = useToast();
+  const { openMemberModal, setMemberSaveHandler, closeMemberModal } = useModal();
 
   const deleteFetcher = useFetcher();
   const editFetcher = useFetcher();
 
+  // Setup member save handler
   useEffect(() => {
-    if (deleteFetcher.data?.success || editFetcher.data?.success) {
+    setMemberSaveHandler((payload) => {
+      const formData = new FormData();
+      formData.append("nom", payload.nom);
+      formData.append("prenom", payload.prenom);
+      formData.append("numero", payload.numero);
+      formData.append("dateDeNaissance", "");
+
+      editFetcher.submit(formData, {
+        method: "put",
+        action: `/api/members/${payload.id}`,
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (deleteFetcher.data?.success) {
+      showToast("Membre supprimé avec succès", "success");
+      setDeletingMemberId(null);
       onDataChange();
-      setEditingMember(null);
     }
-  }, [deleteFetcher.data, editFetcher.data]);
+    if (deleteFetcher.data?.error) {
+      showToast(deleteFetcher.data.error, "error");
+      setDeletingMemberId(null);
+    }
+  }, [deleteFetcher.data]);
+
+  useEffect(() => {
+    if (editFetcher.data?.success) {
+      showToast("Membre modifié avec succès", "success");
+      closeMemberModal();
+      onDataChange();
+    }
+    if (editFetcher.data?.error) {
+      showToast(editFetcher.data.error, "error");
+    }
+  }, [editFetcher.data]);
 
   const filteredMembers = members
     .filter((member) => {
@@ -163,33 +197,12 @@ function MemberTable({
     });
 
   const handleEditClick = (member: Member) => {
-    setEditingMember(member);
-    setEditNom(member.nom || "");
-    setEditPrenom(member.prenom || "");
-    setEditNumero(member.numero || "");
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingMember) return;
-    if (!editNom.trim() || !editPrenom.trim()) {
-      alert("Le nom et le prénom sont obligatoires.");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("nom", editNom.trim());
-    formData.append("prenom", editPrenom.trim());
-    formData.append("numero", editNumero.trim());
-    formData.append("dateDeNaissance", "");
-
-    editFetcher.submit(formData, {
-      method: "put",
-      action: `/api/members/${editingMember.id}`,
-    });
+    openMemberModal(member);
   };
 
   const handleDelete = (memberId: number) => {
     if (confirm("Voulez-vous vraiment supprimer ce membre ?")) {
+      setDeletingMemberId(memberId);
       deleteFetcher.submit(null, {
         method: "delete",
         action: `/api/members/${memberId}`,
@@ -199,14 +212,13 @@ function MemberTable({
 
   const downloadCSV = () => {
     if (members.length === 0) {
-      alert("Aucun membre à télécharger !");
+      showToast("Aucun membre à télécharger !", "warning");
       return;
     }
 
     let csvContent = "Nom,Prénom,Numéro de téléphone\n";
     filteredMembers.forEach((member) => {
-      csvContent += `${member.nom || ""},${member.prenom || ""},${member.numero || "Aucune donnée "
-        }\n`;
+      csvContent += `${member.nom || ""},${member.prenom || ""},${member.numero || "Aucune donnée"}\n`;
     });
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -237,70 +249,6 @@ function MemberTable({
         {filteredMembers.length > 1 ? "s" : ""}
       </div>
 
-      {/* Edit Modal */}
-      {editingMember && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Modifier le membre
-            </h2>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-                  Nom
-                </label>
-                <input
-                  type="text"
-                  value={editNom}
-                  onChange={(e) => setEditNom(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-                  Prénom
-                </label>
-                <input
-                  type="text"
-                  value={editPrenom}
-                  onChange={(e) => setEditPrenom(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-                  Numéro de téléphone
-                </label>
-                <input
-                  type="text"
-                  value={editNumero}
-                  onChange={(e) => setEditNumero(e.target.value)}
-                  className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 mt-4">
-              <button
-                onClick={handleSaveEdit}
-                className="flex-1 border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm"
-              >
-                Enregistrer
-              </button>
-              <button
-                onClick={() => setEditingMember(null)}
-                className="flex-1 border border-[#c7b8ea] rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 bg-white text-[#4a2b87] hover:bg-gray-50 shadow-sm"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Table */}
       <div className="hidden md:flex flex-col flex-1 min-h-0 rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-auto flex-1">
@@ -321,7 +269,7 @@ function MemberTable({
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white diAucune donnée -y diAucune donnée -gray-100">
+            <tbody className="bg-white">
               {filteredMembers.length === 0 ? (
                 <tr>
                   <td
@@ -337,17 +285,16 @@ function MemberTable({
                 filteredMembers.map((member, index) => (
                   <tr
                     key={member.id}
-                    className={`hover:bg-gray-50 transition-colors ${index % 2 === 1 ? "bg-gray-50/50" : ""
-                      }`}
+                    className={`hover:bg-gray-50 transition-colors ${index % 2 === 1 ? "bg-gray-50/50" : ""}`}
                   >
                     <td className="py-3 px-4 text-gray-800">
-                      {member.nom || "Aucune donnée "}
+                      {member.nom || "Aucune donnée"}
                     </td>
                     <td className="py-3 px-4 text-gray-600">
-                      {member.prenom || "Aucune donnée "}
+                      {member.prenom || "Aucune donnée"}
                     </td>
                     <td className="py-3 px-4 text-gray-600 font-mono text-sm">
-                      {member.numero || "Aucune donnée "}
+                      {member.numero || "Aucune donnée"}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex gap-2 justify-center">
@@ -367,21 +314,26 @@ function MemberTable({
                         </button>
                         <button
                           onClick={() => handleDelete(member.id)}
-                          className="p-2 rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors"
+                          disabled={deletingMemberId === member.id}
+                          className={`p-2 ${deletingMemberId === member.id ? "pb-[0.06rem]" : "pb-2"} rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors disabled:opacity-50 ${deletingMemberId === member.id ? "opacity-50" : ""}`}
                           title="Supprimer"
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            className="w-4 h-4"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
+                          {deletingMemberId === member.id ? (
+                            <Spinner className="w-4 h-4 border-[#d32f2f]/30 border-t-[#d32f2f]" />
+                          ) : (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="w-4 h-4"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          )}
                         </button>
                       </div>
                     </td>
@@ -413,7 +365,7 @@ function MemberTable({
                     {member.nom} {member.prenom}
                   </h3>
                   <p className="text-gray-500 font-mono text-sm mt-1">
-                    {member.numero || "Aucune donnée "}
+                    {member.numero || "Aucune donnée"}
                   </p>
                 </div>
                 <div className="flex gap-1">
@@ -432,20 +384,25 @@ function MemberTable({
                   </button>
                   <button
                     onClick={() => handleDelete(member.id)}
-                    className="p-2 rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors"
+                    disabled={deletingMemberId === member.id}
+                    className={`p-2 ${deletingMemberId === member.id ? "pb-[0.08rem]" : "pb-2"} rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors disabled:opacity-50 ${deletingMemberId === member.id ? "opacity-50" : ""}`}
                   >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="w-5 h-5"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
+                    {deletingMemberId === member.id ? (
+                      <Spinner className="w-5 h-5 border-[#d32f2f]/30 border-t-[#d32f2f]" />
+                    ) : (
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                        className="w-5 h-5"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
                   </button>
                 </div>
               </div>
@@ -474,22 +431,55 @@ function PresenceTable({
 }) {
   const [searchName, setSearchName] = useState("");
   const [filterCulte, setFilterCulte] = useState("");
-  const [editingPresence, setEditingPresence] = useState<Presence | null>(null);
-  const [editPresenceStatus, setEditPresenceStatus] = useState<
-    "Présent" | "Absent"
-  >("Présent");
-  const [editCulte, setEditCulte] = useState("");
-  const [editRaisonAbsence, setEditRaisonAbsence] = useState("");
+  const [deletingPresenceId, setDeletingPresenceId] = useState<number | null>(null);
+  const { showToast } = useToast();
+  const { openPresenceModal, setPresenceSaveHandler, closePresenceModal } = useModal();
 
   const deleteFetcher = useFetcher();
   const editFetcher = useFetcher();
 
+  // Setup presence save handler
   useEffect(() => {
-    if (deleteFetcher.data?.success || editFetcher.data?.success) {
+    setPresenceSaveHandler((payload) => {
+      const culteId =
+        payload.culte === "1er culte" ? 1 : payload.culte === "2ème culte" ? 2 : 1;
+
+      const formData = new FormData();
+      formData.append("presence", (payload.presenceStatus === "Présent").toString());
+      formData.append("culteId", culteId.toString());
+      if (payload.presenceStatus === "Absent" && payload.pkabsence) {
+        formData.append("pkabsence", payload.pkabsence);
+      }
+
+      editFetcher.submit(formData, {
+        method: "put",
+        action: `/api/presences/${payload.id}`,
+      });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (deleteFetcher.data?.success) {
+      showToast("Présence supprimée avec succès", "success");
+      setDeletingPresenceId(null);
       onDataChange();
-      setEditingPresence(null);
     }
-  }, [deleteFetcher.data, editFetcher.data]);
+    if (deleteFetcher.data?.error) {
+      showToast(deleteFetcher.data.error, "error");
+      setDeletingPresenceId(null);
+    }
+  }, [deleteFetcher.data]);
+
+  useEffect(() => {
+    if (editFetcher.data?.success) {
+      showToast("Présence modifiée avec succès", "success");
+      closePresenceModal();
+      onDataChange();
+    }
+    if (editFetcher.data?.error) {
+      showToast(editFetcher.data.error, "error");
+    }
+  }, [editFetcher.data]);
 
   const cultes = [
     ...new Set(
@@ -511,39 +501,12 @@ function PresenceTable({
   });
 
   const handleEditClick = (presence: Presence) => {
-    setEditingPresence(presence);
-    setEditPresenceStatus(presence.presence === "Présent" ? "Présent" : "Absent");
-    setEditCulte(presence.culte || "1er culte");
-    setEditRaisonAbsence(presence.pkabsence || "");
-  };
-
-  const handleSaveEdit = () => {
-    if (!editingPresence) return;
-
-    // Vérifier la raison si absent
-    if (editPresenceStatus === "Absent" && !editRaisonAbsence.trim()) {
-      alert("Veuillez indiquer la raison de l'absence.");
-      return;
-    }
-
-    const culteId =
-      editCulte === "1er culte" ? 1 : editCulte === "2ème culte" ? 2 : 1;
-
-    const formData = new FormData();
-    formData.append("presence", (editPresenceStatus === "Présent").toString());
-    formData.append("culteId", culteId.toString());
-    if (editPresenceStatus === "Absent" && editRaisonAbsence.trim()) {
-      formData.append("pkabsence", editRaisonAbsence.trim());
-    }
-
-    editFetcher.submit(formData, {
-      method: "put",
-      action: `/api/presences/${editingPresence.id}`,
-    });
+    openPresenceModal(presence);
   };
 
   const handleDelete = (presenceId: number) => {
     if (confirm("Voulez-vous vraiment supprimer cette présence ?")) {
+      setDeletingPresenceId(presenceId);
       deleteFetcher.submit(null, {
         method: "delete",
         action: `/api/presences/${presenceId}`,
@@ -553,7 +516,7 @@ function PresenceTable({
 
   const downloadCSV = () => {
     if (entries.length === 0) {
-      alert("Aucune donnée à télécharger !");
+      showToast("Aucune donnée à télécharger !", "warning");
       return;
     }
 
@@ -624,117 +587,6 @@ function PresenceTable({
         {filteredEntries.length > 1 ? "s" : ""}
       </div>
 
-      {/* Edit Modal */}
-      {editingPresence && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fadeIn">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              Modifier la présence
-            </h2>
-
-            <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-              <p className="text-sm text-gray-600">
-                Membre:{" "}
-                <span className="font-medium text-gray-800">
-                  {editingPresence.nom}
-                </span>
-              </p>
-              <p className="text-sm text-gray-600">
-                Date:{" "}
-                <span className="font-medium text-gray-800">
-                  {editingPresence.date}
-                </span>
-              </p>
-            </div>
-
-            <div className="mb-4">
-              <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-                Statut de présence
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label
-                  className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${editPresenceStatus === "Présent"
-                      ? "border-[#2e7d32] bg-[#e8f5e9] text-[#2e7d32]"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="editPresence"
-                    value="Présent"
-                    checked={editPresenceStatus === "Présent"}
-                    onChange={() => setEditPresenceStatus("Présent")}
-                    className="sr-only"
-                  />
-                  <span className="font-medium text-sm">Présent</span>
-                </label>
-                <label
-                  className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 cursor-pointer transition-all ${editPresenceStatus === "Absent"
-                      ? "border-[#c62828] bg-[#ffebee] text-[#c62828]"
-                      : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                    }`}
-                >
-                  <input
-                    type="radio"
-                    name="editPresence"
-                    value="Absent"
-                    checked={editPresenceStatus === "Absent"}
-                    onChange={() => setEditPresenceStatus("Absent")}
-                    className="sr-only"
-                  />
-                  <span className="font-medium text-sm">Absent</span>
-                </label>
-              </div>
-            </div>
-
-            {/* Raison d'absence - affiché uniquement si Absent est sélectionné */}
-            {editPresenceStatus === "Absent" && (
-              <div className="mb-4 animate-fadeIn">
-                <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-                  Raison de l'absence <span className="text-[#c62828]">*</span>
-                </label>
-                <textarea
-                  value={editRaisonAbsence}
-                  onChange={(e) => setEditRaisonAbsence(e.target.value)}
-                  placeholder="Indiquez la raison de l'absence..."
-                  rows={3}
-                  className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#c62828] focus:ring-2 focus:ring-[#c62828]/20 focus:outline-none resize-none"
-                />
-              </div>
-            )}
-
-            <div className="mb-4">
-              <label className="block mb-1.5 text-gray-700 font-medium text-sm">
-                Culte
-              </label>
-              <select
-                value={editCulte}
-                onChange={(e) => setEditCulte(e.target.value)}
-                className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
-              >
-                <option value="1er culte">1er culte</option>
-                <option value="2ème culte">2ème culte</option>
-              </select>
-            </div>
-
-            <div className="flex gap-3">
-              <button
-                onClick={handleSaveEdit}
-                className="flex-1 border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm"
-              >
-                Enregistrer
-              </button>
-              <button
-                onClick={() => setEditingPresence(null)}
-                className="flex-1 border border-[#c7b8ea] rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 bg-white text-[#4a2b87] hover:bg-gray-50 shadow-sm"
-              >
-                Annuler
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Table */}
       <div className="hidden lg:flex flex-col flex-1 min-h-0 rounded-lg border border-gray-200 shadow-sm overflow-hidden">
         <div className="overflow-auto flex-1">
@@ -761,7 +613,7 @@ function PresenceTable({
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white diAucune donnée -y diAucune donnée -gray-100">
+            <tbody className="bg-white">
               {filteredEntries.length === 0 ? (
                 <tr>
                   <td
@@ -777,25 +629,24 @@ function PresenceTable({
                 filteredEntries.map((e, index) => (
                   <tr
                     key={e.id}
-                    className={`hover:bg-gray-50 transition-colors ${index % 2 === 1 ? "bg-gray-50/50" : ""
-                      }`}
+                    className={`hover:bg-gray-50 transition-colors ${index % 2 === 1 ? "bg-gray-50/50" : ""}`}
                   >
                     <td className="py-3 px-4 text-gray-800">
-                      {e.nom || "Aucune donnée "}
+                      {e.nom || "Aucune donnée"}
                     </td>
                     <td className="py-3 px-4 text-gray-600 font-mono text-sm">
-                      {e.telephone || "Aucune donnée "}
+                      {e.telephone || "Aucune donnée"}
                     </td>
                     <td className="py-3 px-4 text-center">
                       {getPresenceBadge(e.presence, e.pkabsence)}
                     </td>
                     <td className="py-3 px-4 text-center">
                       <span className="px-2 py-0.5 rounded text-xs font-medium bg-[#ede7f6] text-[#4a2b87]">
-                        {e.culte || "Aucune donnée "}
+                        {e.culte || "Aucune donnée"}
                       </span>
                     </td>
                     <td className="py-3 px-4 text-center text-gray-500 text-sm">
-                      {e.date || "Aucune donnée "}
+                      {e.date || "Aucune donnée"}
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex gap-2 justify-center">
@@ -815,21 +666,26 @@ function PresenceTable({
                         </button>
                         <button
                           onClick={() => handleDelete(e.id)}
-                          className="p-2 rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors"
+                          disabled={deletingPresenceId === e.id}
+                          className={`p-2 ${deletingPresenceId === e.id ? "pb-[0.06rem]" : "pb-2"} rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors disabled:opacity-50 ${deletingPresenceId === e.id ? "opacity-50" : ""}`}
                           title="Supprimer"
                         >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            className="w-4 h-4"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
+                          {deletingPresenceId === e.id ? (
+                            <Spinner className="w-4 h-4 border-[#d32f2f]/30 border-t-[#d32f2f]" />
+                          ) : (
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                              className="w-4 h-4"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          )}
                         </button>
                       </div>
                     </td>
@@ -859,7 +715,7 @@ function PresenceTable({
                 <div>
                   <h3 className="font-medium text-gray-800">{e.nom}</h3>
                   <p className="text-gray-500 font-mono text-sm">
-                    {e.telephone || "Aucune donnée "}
+                    {e.telephone || "Aucune donnée"}
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -879,20 +735,25 @@ function PresenceTable({
                     </button>
                     <button
                       onClick={() => handleDelete(e.id)}
-                      className="p-2 rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors"
+                      disabled={deletingPresenceId === e.id}
+                      className={`p-2 ${deletingPresenceId === e.id ? "pb-[0.08rem]" : "pb-2"} rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors disabled:opacity-50 ${deletingPresenceId === e.id ? "opacity-50" : ""}`}
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="w-4 h-4"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
+                      {deletingPresenceId === e.id ? (
+                        <Spinner className="w-4 h-4 border-[#d32f2f]/30 border-t-[#d32f2f]" />
+                      ) : (
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                          className="w-4 h-4"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      )}
                     </button>
                   </div>
                 </div>
@@ -906,8 +767,7 @@ function PresenceTable({
                 <span className="px-2 py-0.5 rounded bg-[#ede7f6] text-[#4a2b87] font-medium text-xs">
                   {e.culte}
                 </span>
-                
-                {getPresenceBadge(e.presence,null)}
+                {getPresenceBadge(e.presence, null)}
                 <span className="text-gray-400 text-xs">{e.date}</span>
               </div>
             </div>
@@ -924,5 +784,3 @@ function PresenceTable({
     </div>
   );
 }
-
-

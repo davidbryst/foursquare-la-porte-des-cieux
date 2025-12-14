@@ -75,6 +75,7 @@ html {
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
+    border-radius: 1rem;
   }
   .mobile-fixed-card-2 {
     position: fixed !important;
@@ -91,6 +92,7 @@ html {
     overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
+    border-radius: 1rem;
   }
   
   .mobile-fixed-card > *:not(.mobile-scroll-content) {
@@ -205,6 +207,22 @@ body::after {
     opacity: 1;
     transform: scale(1);
   }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-slideInRight {
+  animation: slideInRight 0.3s ease-out;
 }
 
 .animate-fadeIn {
