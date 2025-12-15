@@ -37,13 +37,13 @@ export default function ToastContainer() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed bottom-0 z-[9999] flex flex-col-reverse py-5 gap-2 w-full sm:right-5 sm:w-1/4 px-4 sm:px-0 pointer-events-none">
+    <div className="fixed bottom-0 z-[9999] toast-container flex flex-col py-5 gap-2 w-full sm:right-5 sm:w-1/4 px-4 sm:px-0 pointer-events-none">
       {toasts.map((toast) => {
         const style = toastStyles[toast.type];
         return (
           <div
             key={toast.id}
-            className={`${style.bg} border-8 ring-2 rounded-2xl p-4 shadow-xl flex items-center gap-3 animate-slideInRight`}
+            className={`${style.bg} border-8 ring-2 rounded-2xl p-4 shadow-xl flex items-center gap-3 animate-slideInRight pointer-events-auto`}
           >
             <FontAwesomeIcon
               icon={style.icon}
