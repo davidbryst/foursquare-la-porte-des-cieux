@@ -317,11 +317,11 @@ function PresenceForm({
 
           <div className="">
             <h1 className="text-center text-gray-800 text-lg sm:text-xl my-2 font-semibold">
-              Gestion des présences au culte
+              Gestion des présences aux cultes
             </h1>
 
             <p className="text-center text-gray-500 text-sm mb-5">
-              Marquez votre présence pour le culte d'aujourd'hui.
+              Marquez votre présence pour les cultes d'aujourd'hui.
             </p>
           </div>
         <div className="space-y-4">
