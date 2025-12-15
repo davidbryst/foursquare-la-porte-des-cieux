@@ -7,6 +7,7 @@ import type { Member, Presence } from "~/db/database.server";
 import { useToast } from "~/context/ToastContext";
 import { useModal } from "~/context/ModalContext";
 import { Spinner } from "~/components/ui/Toast";
+import Header from "~/components/Header";
 
 export function meta({ }: Route.MetaArgs) {
   return [{ title: "Dashboard - Présence Culte" }];
@@ -31,59 +32,8 @@ export default function DashboardPage({ loaderData }: Route.ComponentProps) {
       <div className="max-w-7xl w-full mx-auto h-full sm:h-auto">
         <div className="relative z-10 w-full h-[85vh] p-4 sm:p-6 md:p-8 rounded-lg bg-white border border-gray-200 shadow-lg overflow-hidden flex flex-col mobile-fixed-card">
           {/* Header */}
-          <header className="relative mb-4 flex items-start justify-between flex-shrink-0">
-            <div className="w-24">
-              <Link
-                to="/"
-                className="inline-flex px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium bg-[#4a2b87] text-white no-underline rounded-lg transition-all hover:bg-[#3a2070] shadow-sm items-center gap-1"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-3 h-3 sm:w-4 sm:h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"
-                  />
-                </svg>
-                <span className="hidden sm:inline">Accueil</span>
-              </Link>
-            </div>
-
-            <img
-              className="w-14 sm:w-16 md:w-20"
-              src="https://image2url.com/images/1764243038241-9886220a-7dd9-4dc5-a8e7-8ded2d536163.png"
-              alt="Logo"
-            />
-
-            <div className="w-24 flex justify-end">
-              <Link
-                to="/api/auth/logout"
-                className="inline-flex px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium bg-[#d32f2f] text-white rounded-lg transition-all hover:bg-[#b71c1c] shadow-sm items-center gap-1"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-3 h-3 sm:w-4 sm:h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                  />
-                </svg>
-                <span className="hidden sm:inline">Déconnexion</span>
-              </Link>
-            </div>
-          </header>
+          <Header showLogout={true} />
+          <div className="h-3"></div>
 
           {/* Tabs */}
           <div className="flex flex-col flex-1 min-h-0">

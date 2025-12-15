@@ -45,6 +45,7 @@ export default function Header({ onLogout, showLogout = false }: HeaderProps) {
             to="/dashboard"
             target="_blank"
             className={primaryLinkClass}
+            aria-label="Accéder au dashboard"
           >
             <FontAwesomeIcon icon={faChartBar} className="w-4 h-4 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Dashboard</span>
@@ -64,23 +65,22 @@ export default function Header({ onLogout, showLogout = false }: HeaderProps) {
 
       {/* Logo - centré */}
       <img
-        className="logo w-12 sm:w-14 md:w-16 inline-block flex-shrink-0 mx-2 drop-shadow-md hover:drop-shadow-lg transition-all duration-300"
+        className="logo w-16 inline-block flex-shrink-0 mx-2 drop-shadow-md hover:drop-shadow-lg transition-all duration-300"
         src="https://image2url.com/images/1764243038241-9886220a-7dd9-4dc5-a8e7-8ded2d536163.png"
         alt="Logo"
       />
 
       {/* Bouton droite - Déconnexion */}
       <div className="flex-1 flex justify-end">
-        {showLogout && onLogout && (
-          <button
-            onClick={onLogout}
+        {showLogout && (          
+          <Link
+            to="/api/auth/logout"
             className={logoutButtonClass}
-            type="button"
             aria-label="Déconnexion"
           >
             <FontAwesomeIcon icon={faSignOutAlt} className="w-4 h-4 sm:w-4 sm:h-4" />
             <span className="hidden sm:inline">Déconnexion</span>
-          </button>
+          </Link>
         )}
       </div>
     </header>
