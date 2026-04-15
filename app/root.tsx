@@ -15,6 +15,7 @@ import { ModalProvider } from "~/context/ModalContext";
 import { ToastProvider } from "~/context/ToastContext";
 import MemberEditModal from "~/components/modals/MemberEditModal";
 import PresenceEditModal from "~/components/modals/PresenceEditModal";
+import VisitorEditModal from "~/components/modals/VisitorEditModal";
 import ToastContainer from "~/components/ui/Toast";
 
 export const links: Route.LinksFunction = () => [
@@ -132,6 +133,7 @@ export default function App() {
         <Outlet />
         <MemberEditModal />
         <PresenceEditModal />
+        <VisitorEditModal />
         <ToastContainer />
       </ModalProvider>
     </ToastProvider>

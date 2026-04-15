@@ -14,6 +14,8 @@ export async function action({ request }: Route.ActionArgs) {
   const prenom = formData.get("prenom") as string;
   const numero = formData.get("numero") as string | null;
   const dateDeNaissance = (formData.get("dateDeNaissance") as string) || "";
+  const categorie = (formData.get("categorie") as string) || "hommes";
+  const photo = (formData.get("photo") as string) || null;
 
   if (!nom || !prenom) {
     return Response.json(
@@ -26,12 +28,12 @@ export async function action({ request }: Route.ActionArgs) {
   const existingMember = await getMemberByNameAndPrenom(nom, prenom);
   if (existingMember) {
     return Response.json(
-      { error: "Ce membre existe déjà", exists: true },
+      { error: "Ce membre existe déjà", exists: true, member: existingMember },
       { status: 400 }
     );
   }
 
-  const memberId = await addMember(nom, prenom, numero, dateDeNaissance);
+  const memberId = await addMember(nom, prenom, numero, dateDeNaissance, categorie, photo);
 
   if (memberId) {
     return Response.json({ success: true, memberId });

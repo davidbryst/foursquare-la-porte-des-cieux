@@ -1,17 +1,17 @@
-import { updateMember, deleteMember } from "~/db/database.server";
-import type { Route } from "./+types/members-id";
+import { updateVisiteur, deleteVisiteur } from "~/db/database.server";
+import type { Route } from "./+types/visitors-id";
 
-// PUT /api/members/:id - Modifier un membre
-// DELETE /api/members/:id - Supprimer un membre
+// PUT /api/visitors/:id - Modifier un visiteur
+// DELETE /api/visitors/:id - Supprimer un visiteur
 export async function action({ request, params }: Route.ActionArgs) {
-  const memberId = parseInt(params.id);
+  const visiteurId = parseInt(params.id);
 
-  if (isNaN(memberId)) {
+  if (isNaN(visiteurId)) {
     return Response.json({ error: "ID invalide" }, { status: 400 });
   }
 
   if (request.method === "DELETE") {
-    const success = await deleteMember(memberId);
+    const success = await deleteVisiteur(visiteurId);
     if (success) {
       return Response.json({ success: true });
     } else {
@@ -26,10 +26,12 @@ export async function action({ request, params }: Route.ActionArgs) {
     const formData = await request.formData();
     const nom = formData.get("nom") as string;
     const prenom = formData.get("prenom") as string;
-    const numero = formData.get("numero") as string | null;
-    const dateDeNaissance = (formData.get("dateDeNaissance") as string) || "";
-    const categorie = formData.get("categorie") as string | null;
-    const photo = formData.get("photo") as string | null;
+    const telephone = formData.get("telephone") as string | null;
+    const culteId = parseInt(formData.get("culteId") as string) || 1;
+    const categorie = (formData.get("categorie") as string) || "hommes";
+    const ageRaw = formData.get("age") as string | null;
+    const age = ageRaw ? parseInt(ageRaw) : null;
+    const provenance = formData.get("provenance") as string | null;
 
     if (!nom || !prenom) {
       return Response.json(
@@ -38,14 +40,15 @@ export async function action({ request, params }: Route.ActionArgs) {
       );
     }
 
-    const success = await updateMember(
-      memberId,
+    const success = await updateVisiteur(
+      visiteurId,
       nom,
       prenom,
-      numero,
-      dateDeNaissance,
-      categorie || undefined,
-      photo !== null ? photo : undefined
+      telephone || null,
+      culteId,
+      categorie,
+      age && !isNaN(age) ? age : null,
+      provenance || null
     );
     if (success) {
       return Response.json({ success: true });

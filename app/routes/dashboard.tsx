@@ -1,736 +1,850 @@
 import { useState, useEffect } from "react";
-import { Link, useFetcher, useRevalidator } from "react-router";
+import { useFetcher, useRevalidator } from "react-router";
 import type { Route } from "./+types/dashboard";
-import { getAllMembers, getAllPresences } from "~/db/database.server";
+import { getAllMembers, getAllPresences, getAllVisiteurs, getPresenceCode, getSessionExpiry } from "~/db/database.server";
 import { requireUser } from "~/utils/session.server";
-import type { Member, Presence } from "~/db/database.server";
+import type { Member, Presence, Visiteur } from "~/db/database.server";
 import { useToast } from "~/context/ToastContext";
 import { useModal } from "~/context/ModalContext";
 import { Spinner } from "~/components/ui/Toast";
 import Header from "~/components/Header";
 
-export function meta({ }: Route.MetaArgs) {
+export function meta({}: Route.MetaArgs) {
   return [{ title: "Dashboard - Présence Culte" }];
 }
 
 export async function loader({ request }: Route.LoaderArgs) {
   await requireUser(request);
-
-  const members = await getAllMembers();
-  const presences = await getAllPresences();
-
-  return { members, presences };
+  const [members, presences, visiteurs, presenceCode, sessionExpiry] = await Promise.all([
+    getAllMembers(),
+    getAllPresences(),
+    getAllVisiteurs(),
+    getPresenceCode(),
+    getSessionExpiry(),
+  ]);
+  return { members, presences, visiteurs, presenceCode, sessionExpiry };
 }
 
-export default function DashboardPage({ loaderData }: Route.ComponentProps) {
-  const { members, presences } = loaderData;
-  const [activeTab, setActiveTab] = useState<"presences" | "members">("presences");
+type DashTab = "presences" | "members" | "visitors" | "reports" | "settings";
+
+const CATEGORY_LABELS: Record<string, string> = {
+  enfants: "Enfants",
+  jeunes: "Jeunes",
+  femmes: "Femmes",
+  hommes: "Hommes",
+};
+
+function downloadBlob(data: ArrayBuffer, filename: string, mimeType: string) {
+  const blob = new Blob([data], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ─── Presence Table ────────────────────────────────────────────────────────────
+function PresenceTable({ presences }: { presences: Presence[] }) {
+  const [catFilter, setCatFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const fetcher = useFetcher();
+  const { showToast } = useToast();
   const revalidator = useRevalidator();
 
+  const filtered = presences.filter((p) => {
+    const matchCat = catFilter === "all" || p.categorie === catFilter;
+    const q = search.toLowerCase();
+    const matchSearch = !q || p.nom.toLowerCase().includes(q);
+    return matchCat && matchSearch;
+  });
+
+  const handleDelete = (id: number) => {
+    if (!confirm("Supprimer cette présence ?")) return;
+    const fd = new FormData();
+    fd.append("_method", "DELETE");
+    fetcher.submit(fd, { method: "delete", action: `/api/presences/${id}` });
+    showToast("Présence supprimée", "success");
+    setTimeout(() => revalidator.revalidate(), 400);
+  };
+
   return (
-    <div className="min-h-screen p-2 sm:p-4 flex items-center justify-center">
-      <div className="max-w-7xl w-full mx-auto h-full sm:h-auto">
-        <div className="relative z-10 w-full h-[85vh] p-4 sm:p-6 md:p-8 rounded-lg bg-white border border-gray-200 shadow-lg overflow-hidden flex flex-col mobile-fixed-card">
-          {/* Header */}
-          <Header showLogout={true} />
-          <div className="h-3"></div>
-
-          {/* Tabs */}
-          <div className="flex flex-col flex-1 min-h-0">
-            <div className="flex border-b border-gray-200 overflow-x-auto flex-shrink-0">
-              <button
-                onClick={() => setActiveTab("presences")}
-                className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === "presences"
-                    ? "text-[#4a2b87] border-b-2 border-[#4a2b87]"
-                    : "text-gray-500 hover:text-gray-700"
-                  }`}
-              >
-                Présences
-              </button>
-              <button
-                onClick={() => setActiveTab("members")}
-                className={`px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === "members"
-                    ? "text-[#4a2b87] border-b-2 border-[#4a2b87]"
-                    : "text-gray-500 hover:text-gray-700"
-                  }`}
-              >
-                Membres
-              </button>
-            </div>
-
-            <div className="flex-1 min-h-0 pt-4 overflow-auto mobile-scroll-content">
-              {activeTab === "presences" ? (
-                <PresenceTable
-                  entries={presences}
-                  onDataChange={() => revalidator.revalidate()}
-                />
-              ) : (
-                <MemberTable
-                  members={members}
-                  onDataChange={() => revalidator.revalidate()}
-                />
-              )}
-            </div>
-          </div>
-        </div>
+    <div>
+      <div className="flex flex-wrap gap-3 mb-4 items-center">
+        <input
+          type="text"
+          placeholder="Rechercher..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border border-[#c7b8ea] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a2b87]/30"
+        />
+        <select
+          value={catFilter}
+          onChange={(e) => setCatFilter(e.target.value)}
+          className="border border-[#c7b8ea] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a2b87]/30"
+        >
+          <option value="all">Toutes catégories</option>
+          {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+        <span className="text-sm text-gray-500 ml-auto">{filtered.length} résultat(s)</span>
+      </div>
+      <div className="overflow-x-auto rounded-xl border border-[#ede7f6]">
+        <table className="w-full text-sm">
+          <thead className="bg-[#f3eeff] text-[#4a2b87]">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold">Nom</th>
+              <th className="px-4 py-3 text-left font-semibold">Prénom</th>
+              <th className="px-4 py-3 text-left font-semibold">Catégorie</th>
+              <th className="px-4 py-3 text-left font-semibold">Culte</th>
+              <th className="px-4 py-3 text-left font-semibold">Date</th>
+              <th className="px-4 py-3 text-left font-semibold">Statut</th>
+              <th className="px-4 py-3 text-center font-semibold">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="text-center py-8 text-gray-400">
+                  Aucune présence trouvée
+                </td>
+              </tr>
+            ) : (
+              filtered.map((p) => (
+                <tr key={p.id} className="border-t border-[#f0ebff] hover:bg-[#faf8ff] transition-colors">
+                  <td className="px-4 py-3 font-medium">{p.nom}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-[#ede7f6] text-[#4a2b87]">
+                      {CATEGORY_LABELS[p.categorie || "hommes"] || "—"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">{p.culte}</td>
+                  <td className="px-4 py-3 text-gray-600">{p.date}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      p.presence === "Présent"
+                        ? "bg-green-100 text-green-700"
+                        : "bg-red-100 text-red-600"
+                    }`}>
+                      {p.presence}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-center">
+                    <button
+                      onClick={() => handleDelete(p.id)}
+                      className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                    >
+                      Supprimer
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );
 }
 
-// Member Table Component
-function MemberTable({
-  members,
-  onDataChange,
-}: {
-  members: Member[];
-  onDataChange: () => void;
-}) {
-  const [searchMember, setSearchMember] = useState("");
-  const [deletingMemberId, setDeletingMemberId] = useState<number | null>(null);
+// ─── Member Table ───────────────────────────────────────────────────────────────
+function MemberTable({ members }: { members: Member[] }) {
+  const [catFilter, setCatFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const fetcher = useFetcher();
   const { showToast } = useToast();
-  const { openMemberModal, setMemberSaveHandler, closeMemberModal } = useModal();
+  const { openMemberModal, setMemberSaveHandler } = useModal();
+  const revalidator = useRevalidator();
 
-  const deleteFetcher = useFetcher();
-  const editFetcher = useFetcher();
+  const filtered = members.filter((m) => {
+    const matchCat = catFilter === "all" || m.categorie === catFilter;
+    const q = search.toLowerCase();
+    const matchSearch =
+      !q ||
+      m.nom.toLowerCase().includes(q) ||
+      m.prenom.toLowerCase().includes(q) ||
+      (m.numero || "").toLowerCase().includes(q);
+    return matchCat && matchSearch;
+  });
 
-  // Setup member save handler
-  useEffect(() => {
-    setMemberSaveHandler((payload) => {
-      const formData = new FormData();
-      formData.append("nom", payload.nom);
-      formData.append("prenom", payload.prenom);
-      formData.append("numero", payload.numero);
-      formData.append("dateDeNaissance", "");
+  const handleDelete = (id: number, name: string) => {
+    if (!confirm(`Supprimer le membre "${name}" ?`)) return;
+    fetcher.submit(null, { method: "delete", action: `/api/members/${id}` });
+    showToast("Membre supprimé", "success");
+    setTimeout(() => revalidator.revalidate(), 400);
+  };
 
-      editFetcher.submit(formData, {
-        method: "put",
-        action: `/api/members/${payload.id}`,
-      });
+  const handleEdit = (member: Member) => {
+    setMemberSaveHandler(async (payload) => {
+      const fd = new FormData();
+      fd.append("nom", payload.nom);
+      fd.append("prenom", payload.prenom);
+      fd.append("numero", payload.numero || "");
+      fd.append("categorie", payload.categorie || "hommes");
+      if ((payload as any).photo) fd.append("photo", (payload as any).photo);
+      const res = await fetch(`/api/members/${payload.id}`, { method: "PUT", body: fd });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Membre modifié avec succès", "success");
+        revalidator.revalidate();
+      } else {
+        showToast(data.error || "Erreur lors de la modification", "error");
+      }
     });
-  }, []);
-
-  useEffect(() => {
-    if (deleteFetcher.data?.success) {
-      showToast("Membre supprimé avec succès", "success");
-      setDeletingMemberId(null);
-      onDataChange();
-    }
-    if (deleteFetcher.data?.error) {
-      showToast(deleteFetcher.data.error, "error");
-      setDeletingMemberId(null);
-    }
-  }, [deleteFetcher.data]);
-
-  useEffect(() => {
-    if (editFetcher.data?.success) {
-      showToast("Membre modifié avec succès", "success");
-      closeMemberModal();
-      onDataChange();
-    }
-    if (editFetcher.data?.error) {
-      showToast(editFetcher.data.error, "error");
-    }
-  }, [editFetcher.data]);
-
-  const filteredMembers = members
-    .filter((member) => {
-      const nomComplet = `${member.nom || ""} ${member.prenom || ""}`
-        .trim()
-        .toLowerCase();
-      return nomComplet.includes(searchMember.toLowerCase());
-    })
-    .sort((a, b) => {
-      const nomA = `${a.nom || ""} ${a.prenom || ""}`.trim();
-      const nomB = `${b.nom || ""} ${b.prenom || ""}`.trim();
-      return nomA.localeCompare(nomB, "fr", { sensitivity: "base" });
-    });
-
-  const handleEditClick = (member: Member) => {
     openMemberModal(member);
   };
 
-  const handleDelete = (memberId: number) => {
-    if (confirm("Voulez-vous vraiment supprimer ce membre ?")) {
-      setDeletingMemberId(memberId);
-      deleteFetcher.submit(null, {
-        method: "delete",
-        action: `/api/members/${memberId}`,
-      });
-    }
-  };
-
-  const downloadCSV = () => {
-    if (members.length === 0) {
-      showToast("Aucun membre à télécharger !", "warning");
-      return;
-    }
-
-    let csvContent = "Nom,Prénom,Numéro de téléphone\n";
-    filteredMembers.forEach((member) => {
-      csvContent += `${member.nom || ""},${member.prenom || ""},${member.numero || "Aucune donnée"}\n`;
-    });
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "membres.csv";
-    a.click();
-  };
-
   return (
-    <div className="animate-fadeIn flex flex-col h-full min-h-0">
-      {/* Search */}
-      <div className="mb-3 flex-shrink-0">
+    <div>
+      <div className="flex flex-wrap gap-3 mb-4 items-center">
         <input
           type="text"
-          value={searchMember}
-          onChange={(e) => setSearchMember(e.target.value)}
-          placeholder="Rechercher un membre..."
-          className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
+          placeholder="Rechercher..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border border-[#c7b8ea] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a2b87]/30"
         />
+        <select
+          value={catFilter}
+          onChange={(e) => setCatFilter(e.target.value)}
+          className="border border-[#c7b8ea] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a2b87]/30"
+        >
+          <option value="all">Toutes catégories</option>
+          {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
+          ))}
+        </select>
+        <span className="text-sm text-gray-500 ml-auto">{filtered.length} membre(s)</span>
       </div>
-
-      {/* Counter */}
-      <div className="mb-2 ml-2 text-sm text-gray-600 flex-shrink-0">
-        {filteredMembers.length} membre
-        {filteredMembers.length > 1 ? "s" : ""} trouvé
-        {filteredMembers.length > 1 ? "s" : ""}
-      </div>
-
-      {/* Table */}
-      <div className="hidden md:flex flex-col flex-1 min-h-0 rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-auto flex-1">
-          <table className="w-full border-collapse">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-[#4a2b87]">
-                <th className="py-3 px-4 text-left text-white font-medium text-sm">
-                  Nom
-                </th>
-                <th className="py-3 px-4 text-left text-white font-medium text-sm">
-                  Prénom
-                </th>
-                <th className="py-3 px-4 text-left text-white font-medium text-sm">
-                  Téléphone
-                </th>
-                <th className="py-3 px-4 text-center text-white font-medium text-sm">
-                  Actions
-                </th>
+      <div className="overflow-x-auto rounded-xl border border-[#ede7f6]">
+        <table className="w-full text-sm">
+          <thead className="bg-[#f3eeff] text-[#4a2b87]">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold">Photo</th>
+              <th className="px-4 py-3 text-left font-semibold">Nom</th>
+              <th className="px-4 py-3 text-left font-semibold">Prénom</th>
+              <th className="px-4 py-3 text-left font-semibold">Catégorie</th>
+              <th className="px-4 py-3 text-left font-semibold">Téléphone</th>
+              <th className="px-4 py-3 text-center font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="text-center py-8 text-gray-400">
+                  Aucun membre trouvé
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white">
-              {filteredMembers.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="py-12 px-4 text-center text-gray-400"
-                  >
-                    {searchMember
-                      ? "Aucun membre trouvé"
-                      : "Aucun membre enregistré"}
+            ) : (
+              filtered.map((m) => (
+                <tr key={m.id} className="border-t border-[#f0ebff] hover:bg-[#faf8ff] transition-colors">
+                  <td className="px-4 py-3">
+                    {m.photo ? (
+                      <img
+                        src={m.photo}
+                        alt={`${m.nom} ${m.prenom}`}
+                        className="w-8 h-8 rounded-full object-cover border-2 border-[#ede7f6]"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-[#ede7f6] flex items-center justify-center text-[#4a2b87] text-xs font-bold">
+                        {m.nom[0]}{m.prenom[0]}
+                      </div>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-medium">{m.nom}</td>
+                  <td className="px-4 py-3">{m.prenom}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-[#ede7f6] text-[#4a2b87]">
+                      {CATEGORY_LABELS[m.categorie || "hommes"] || "Hommes"}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{m.numero || "—"}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleEdit(m)}
+                        className="text-[#4a2b87] hover:text-[#5a3b97] text-xs px-2 py-1 rounded hover:bg-[#ede7f6] transition-colors"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => handleDelete(m.id, `${m.nom} ${m.prenom}`)}
+                        className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                filteredMembers.map((member, index) => (
-                  <tr
-                    key={member.id}
-                    className={`hover:bg-gray-50 transition-colors ${index % 2 === 1 ? "bg-gray-50/50" : ""}`}
-                  >
-                    <td className="py-3 px-4 text-gray-800">
-                      {member.nom || "Aucune donnée"}
-                    </td>
-                    <td className="py-3 px-4 text-gray-600">
-                      {member.prenom || "Aucune donnée"}
-                    </td>
-                    <td className="py-3 px-4 text-gray-600 font-mono text-sm">
-                      {member.numero || "Aucune donnée"}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={() => handleEditClick(member)}
-                          className="p-2 rounded-lg text-[#4a2b87] bg-[#4a2b87]/10 hover:bg-[#4a2b87]/20 transition-colors"
-                          title="Modifier"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            className="w-4 h-4"
-                          >
-                            <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(member.id)}
-                          disabled={deletingMemberId === member.id}
-                          className={`p-2 ${deletingMemberId === member.id ? "pb-[0.06rem]" : "pb-2"} rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors disabled:opacity-50 ${deletingMemberId === member.id ? "opacity-50" : ""}`}
-                          title="Supprimer"
-                        >
-                          {deletingMemberId === member.id ? (
-                            <Spinner className="w-4 h-4 border-[#d32f2f]/30 border-t-[#d32f2f]" />
-                          ) : (
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                              className="w-4 h-4"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
-
-      {/* Mobile Cards */}
-      <div className="md:hidden flex-1 min-h-0 overflow-auto space-y-3 p-1 bg-gray-50 border border-gray-200 rounded-lg">
-        {filteredMembers.length === 0 ? (
-          <div className="bg-white rounded-lg p-8 text-center text-gray-400 border border-gray-200">
-            {searchMember
-              ? "Aucun membre trouvé"
-              : "Aucun membre enregistré"}
-          </div>
-        ) : (
-          filteredMembers.map((member) => (
-            <div
-              key={member.id}
-              className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm"
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <h3 className="font-medium text-gray-800">
-                    {member.nom} {member.prenom}
-                  </h3>
-                  <p className="text-gray-500 font-mono text-sm mt-1">
-                    {member.numero || "Aucune donnée"}
-                  </p>
-                </div>
-                <div className="flex gap-1">
-                  <button
-                    onClick={() => handleEditClick(member)}
-                    className="p-2 rounded-lg text-[#4a2b87] bg-[#4a2b87]/10 hover:bg-[#4a2b87]/20 transition-colors"
-                  >
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                      className="w-5 h-5"
-                    >
-                      <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343z" />
-                    </svg>
-                  </button>
-                  <button
-                    onClick={() => handleDelete(member.id)}
-                    disabled={deletingMemberId === member.id}
-                    className={`p-2 ${deletingMemberId === member.id ? "pb-[0.08rem]" : "pb-2"} rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors disabled:opacity-50 ${deletingMemberId === member.id ? "opacity-50" : ""}`}
-                  >
-                    {deletingMemberId === member.id ? (
-                      <Spinner className="w-5 h-5 border-[#d32f2f]/30 border-t-[#d32f2f]" />
-                    ) : (
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="w-5 h-5"
-                      >
-                        <path
-                          fillRule="evenodd"
-                          d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
-                          clipRule="evenodd"
-                        />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))
-        )}
-      </div>
-
-      <button
-        onClick={downloadCSV}
-        className="w-full mt-4 flex-shrink-0 border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md"
-      >
-        Télécharger la liste des membres
-      </button>
     </div>
   );
 }
 
-// Presence Table Component
-function PresenceTable({
-  entries,
-  onDataChange,
-}: {
-  entries: Presence[];
-  onDataChange: () => void;
-}) {
-  const [searchName, setSearchName] = useState("");
-  const [filterCulte, setFilterCulte] = useState("");
-  const [deletingPresenceId, setDeletingPresenceId] = useState<number | null>(null);
+// ─── Visitor Table ──────────────────────────────────────────────────────────────
+function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
+  const [catFilter, setCatFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const fetcher = useFetcher();
   const { showToast } = useToast();
-  const { openPresenceModal, setPresenceSaveHandler, closePresenceModal } = useModal();
+  const { openVisitorModal, setVisitorSaveHandler } = useModal();
+  const revalidator = useRevalidator();
 
-  const deleteFetcher = useFetcher();
-  const editFetcher = useFetcher();
+  const filtered = visiteurs.filter((v) => {
+    const matchCat = catFilter === "all" || v.categorie === catFilter;
+    const q = search.toLowerCase();
+    const matchSearch =
+      !q ||
+      v.nom.toLowerCase().includes(q) ||
+      v.prenom.toLowerCase().includes(q) ||
+      (v.provenance || "").toLowerCase().includes(q);
+    return matchCat && matchSearch;
+  });
 
-  // Setup presence save handler
-  useEffect(() => {
-    setPresenceSaveHandler((payload) => {
-      const culteId =
-        payload.culte === "1er culte" ? 1 : payload.culte === "2ème culte" ? 2 : 1;
+  const handleDelete = (id: number, name: string) => {
+    if (!confirm(`Supprimer le visiteur "${name}" ?`)) return;
+    fetcher.submit(null, { method: "delete", action: `/api/visitors/${id}` });
+    showToast("Visiteur supprimé", "success");
+    setTimeout(() => revalidator.revalidate(), 400);
+  };
 
-      const formData = new FormData();
-      formData.append("presence", (payload.presenceStatus === "Présent").toString());
-      formData.append("culteId", culteId.toString());
-      if (payload.presenceStatus === "Absent" && payload.pkabsence) {
-        formData.append("pkabsence", payload.pkabsence);
+  const handleEdit = (v: Visiteur) => {
+    setVisitorSaveHandler(async (payload) => {
+      const fd = new FormData();
+      fd.append("nom", payload.nom);
+      fd.append("prenom", payload.prenom);
+      fd.append("telephone", payload.telephone || "");
+      fd.append("culteId", String(payload.culteId));
+      fd.append("categorie", payload.categorie);
+      fd.append("age", payload.age !== undefined && payload.age !== null ? String(payload.age) : "");
+      fd.append("provenance", payload.provenance || "");
+      const res = await fetch(`/api/visitors/${payload.id}`, { method: "PUT", body: fd });
+      const data = await res.json();
+      if (data.success) {
+        showToast("Visiteur modifié avec succès", "success");
+        revalidator.revalidate();
+      } else {
+        showToast(data.error || "Erreur lors de la modification", "error");
       }
-
-      editFetcher.submit(formData, {
-        method: "put",
-        action: `/api/presences/${payload.id}`,
-      });
     });
-  }, []);
-
-  useEffect(() => {
-    if (deleteFetcher.data?.success) {
-      showToast("Présence supprimée avec succès", "success");
-      setDeletingPresenceId(null);
-      onDataChange();
-    }
-    if (deleteFetcher.data?.error) {
-      showToast(deleteFetcher.data.error, "error");
-      setDeletingPresenceId(null);
-    }
-  }, [deleteFetcher.data]);
-
-  useEffect(() => {
-    if (editFetcher.data?.success) {
-      showToast("Présence modifiée avec succès", "success");
-      closePresenceModal();
-      onDataChange();
-    }
-    if (editFetcher.data?.error) {
-      showToast(editFetcher.data.error, "error");
-    }
-  }, [editFetcher.data]);
-
-  const cultes = [
-    ...new Set(
-      entries.map((e) => e.culte).filter((c) => c && c !== "Non spécifié")
-    ),
-  ].sort((a, b) => {
-    if (a.includes("1er")) return -1;
-    if (b.includes("1er")) return 1;
-    if (a.includes("2ème")) return -1;
-    if (b.includes("2ème")) return 1;
-    return a.localeCompare(b, "fr");
-  });
-
-  const filteredEntries = entries.filter((e) => {
-    if (!e || !e.nom) return false;
-    const nomMatch = e.nom.toLowerCase().includes(searchName.toLowerCase());
-    const culteMatch = filterCulte === "" || e.culte === filterCulte;
-    return nomMatch && culteMatch;
-  });
-
-  const handleEditClick = (presence: Presence) => {
-    openPresenceModal(presence);
+    openVisitorModal(v);
   };
 
-  const handleDelete = (presenceId: number) => {
-    if (confirm("Voulez-vous vraiment supprimer cette présence ?")) {
-      setDeletingPresenceId(presenceId);
-      deleteFetcher.submit(null, {
-        method: "delete",
-        action: `/api/presences/${presenceId}`,
-      });
-    }
-  };
-
-  const downloadCSV = () => {
-    if (entries.length === 0) {
-      showToast("Aucune donnée à télécharger !", "warning");
-      return;
-    }
-
-    let csvContent = "Nom,Numéro,Présence,Culte,Date\n";
-    filteredEntries.forEach((e) => {
-      csvContent += `${e.nom},${e.telephone},${e.presence},${e.culte},${e.date}\n`;
-    });
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const handleDownloadCSV = () => {
+    const headers = ["Nom", "Prénom", "Téléphone", "Catégorie", "Âge", "Culte", "Date", "Provenance"];
+    const rows = visiteurs.map((v) => [
+      v.nom, v.prenom, v.telephone || "", CATEGORY_LABELS[v.categorie] || v.categorie,
+      v.age ?? "", v.culte, v.date, v.provenance || "",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "presence.csv";
+    a.download = `visiteurs_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.csv`;
     a.click();
-  };
-
-  const getPresenceBadge = (presence: string, pkabsence?: string | null) => {
-    if (presence === "Présent") {
-      return (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[#e8f5e9] text-[#2e7d32]">
-          Présent
-        </span>
-      );
-    }
-    return (
-      <div className="flex flex-col items-center gap-1">
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium bg-[#ffebee] text-[#c62828]">
-          Absent
-        </span>
-        {pkabsence && (
-          <span className="text-xs text-gray-500 italic max-w-[150px] truncate" title={pkabsence}>
-            {pkabsence}
-          </span>
-        )}
-      </div>
-    );
+    URL.revokeObjectURL(url);
   };
 
   return (
-    <div className="animate-fadeIn flex flex-col h-full min-h-0">
-      {/* Filters */}
-      <div className="grid grid-cols-2 gap-3 mb-3 flex-shrink-0">
+    <div>
+      <div className="flex flex-wrap gap-3 mb-4 items-center">
         <input
           type="text"
-          value={searchName}
-          onChange={(e) => setSearchName(e.target.value)}
-          placeholder="Rechercher un nom..."
-          className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
+          placeholder="Rechercher..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border border-[#c7b8ea] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a2b87]/30"
         />
         <select
-          value={filterCulte}
-          onChange={(e) => setFilterCulte(e.target.value)}
-          className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
+          value={catFilter}
+          onChange={(e) => setCatFilter(e.target.value)}
+          className="border border-[#c7b8ea] rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a2b87]/30"
         >
-          <option value="">Tous les cultes</option>
-          {cultes.map((culte) => (
-            <option key={culte} value={culte}>
-              {culte}
-            </option>
+          <option value="all">Toutes catégories</option>
+          {Object.entries(CATEGORY_LABELS).map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
           ))}
         </select>
+        <button
+          onClick={handleDownloadCSV}
+          className="ml-auto flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+        >
+          Télécharger CSV
+        </button>
+        <span className="text-sm text-gray-500">{filtered.length} visiteur(s)</span>
       </div>
-
-      {/* Counter */}
-      <div className="mb-2 ml-2 text-sm text-gray-600 flex-shrink-0">
-        {filteredEntries.length} présence
-        {filteredEntries.length > 1 ? "s" : ""} trouvée
-        {filteredEntries.length > 1 ? "s" : ""}
-      </div>
-
-      {/* Table */}
-      <div className="hidden lg:flex flex-col flex-1 min-h-0 rounded-lg border border-gray-200 shadow-sm overflow-hidden">
-        <div className="overflow-auto flex-1">
-          <table className="w-full border-collapse">
-            <thead className="sticky top-0 z-10">
-              <tr className="bg-[#4a2b87]">
-                <th className="py-3 px-4 text-left text-white font-medium text-sm">
-                  Nom
-                </th>
-                <th className="py-3 px-4 text-left text-white font-medium text-sm">
-                  Téléphone
-                </th>
-                <th className="py-3 px-4 text-center text-white font-medium text-sm">
-                  Présence
-                </th>
-                <th className="py-3 px-4 text-center text-white font-medium text-sm">
-                  Culte
-                </th>
-                <th className="py-3 px-4 text-center text-white font-medium text-sm">
-                  Date
-                </th>
-                <th className="py-3 px-4 text-center text-white font-medium text-sm">
-                  Actions
-                </th>
+      <div className="overflow-x-auto rounded-xl border border-[#ede7f6]">
+        <table className="w-full text-sm">
+          <thead className="bg-[#f3eeff] text-[#4a2b87]">
+            <tr>
+              <th className="px-4 py-3 text-left font-semibold">Nom</th>
+              <th className="px-4 py-3 text-left font-semibold">Prénom</th>
+              <th className="px-4 py-3 text-left font-semibold">Téléphone</th>
+              <th className="px-4 py-3 text-left font-semibold">Catégorie</th>
+              <th className="px-4 py-3 text-left font-semibold">Âge</th>
+              <th className="px-4 py-3 text-left font-semibold">Culte</th>
+              <th className="px-4 py-3 text-left font-semibold">Date</th>
+              <th className="px-4 py-3 text-left font-semibold">Provenance</th>
+              <th className="px-4 py-3 text-center font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="text-center py-8 text-gray-400">
+                  Aucun visiteur trouvé
+                </td>
               </tr>
-            </thead>
-            <tbody className="bg-white">
-              {filteredEntries.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="py-12 px-4 text-center text-gray-400"
-                  >
-                    {searchName || filterCulte
-                      ? "Aucune présence trouvée"
-                      : "Aucune présence enregistrée"}
+            ) : (
+              filtered.map((v) => (
+                <tr key={v.id} className="border-t border-[#f0ebff] hover:bg-[#faf8ff] transition-colors">
+                  <td className="px-4 py-3 font-medium">{v.nom}</td>
+                  <td className="px-4 py-3">{v.prenom}</td>
+                  <td className="px-4 py-3 text-gray-600">{v.telephone || "—"}</td>
+                  <td className="px-4 py-3">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-[#ede7f6] text-[#4a2b87]">
+                      {CATEGORY_LABELS[v.categorie] || v.categorie}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{v.age ?? "—"}</td>
+                  <td className="px-4 py-3 text-gray-600">{v.culte}</td>
+                  <td className="px-4 py-3 text-gray-600">{v.date}</td>
+                  <td className="px-4 py-3 text-gray-600 max-w-[120px] truncate">{v.provenance || "—"}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => handleEdit(v)}
+                        className="text-[#4a2b87] hover:text-[#5a3b97] text-xs px-2 py-1 rounded hover:bg-[#ede7f6] transition-colors"
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => handleDelete(v.id, `${v.nom} ${v.prenom}`)}
+                        className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
                   </td>
                 </tr>
-              ) : (
-                filteredEntries.map((e, index) => (
-                  <tr
-                    key={e.id}
-                    className={`hover:bg-gray-50 transition-colors ${index % 2 === 1 ? "bg-gray-50/50" : ""}`}
-                  >
-                    <td className="py-3 px-4 text-gray-800">
-                      {e.nom || "Aucune donnée"}
-                    </td>
-                    <td className="py-3 px-4 text-gray-600 font-mono text-sm">
-                      {e.telephone || "Aucune donnée"}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      {getPresenceBadge(e.presence, e.pkabsence)}
-                    </td>
-                    <td className="py-3 px-4 text-center">
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-[#ede7f6] text-[#4a2b87]">
-                        {e.culte || "Aucune donnée"}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-center text-gray-500 text-sm">
-                      {e.date || "Aucune donnée"}
-                    </td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={() => handleEditClick(e)}
-                          className="p-2 rounded-lg text-[#4a2b87] bg-[#4a2b87]/10 hover:bg-[#4a2b87]/20 transition-colors"
-                          title="Modifier"
-                        >
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                            className="w-4 h-4"
-                          >
-                            <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(e.id)}
-                          disabled={deletingPresenceId === e.id}
-                          className={`p-2 ${deletingPresenceId === e.id ? "pb-[0.06rem]" : "pb-2"} rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors disabled:opacity-50 ${deletingPresenceId === e.id ? "opacity-50" : ""}`}
-                          title="Supprimer"
-                        >
-                          {deletingPresenceId === e.id ? (
-                            <Spinner className="w-4 h-4 border-[#d32f2f]/30 border-t-[#d32f2f]" />
-                          ) : (
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                              className="w-4 h-4"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          )}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── Reports Tab ────────────────────────────────────────────────────────────────
+function ReportsTab({ presences, visiteurs }: { presences: Presence[]; visiteurs: Visiteur[] }) {
+  const [isExporting, setIsExporting] = useState(false);
+  const { showToast } = useToast();
+
+  const totalPresents = presences.filter((p) => p.presence === "Présent").length;
+  const totalAbsents = presences.filter((p) => p.presence !== "Présent").length;
+  const totalVisiteurs = visiteurs.length;
+
+  const byCategory = ["enfants", "jeunes", "femmes", "hommes"].map((cat) => {
+    const catPresences = presences.filter((p) => p.categorie === cat);
+    return {
+      cat,
+      label: CATEGORY_LABELS[cat],
+      presents: catPresences.filter((p) => p.presence === "Présent").length,
+      absents: catPresences.filter((p) => p.presence !== "Présent").length,
+      total: catPresences.length,
+    };
+  });
+
+  const byCulte = Array.from(new Set(presences.map((p) => p.culte))).map((culte) => {
+    const cp = presences.filter((p) => p.culte === culte);
+    return {
+      culte,
+      presents: cp.filter((p) => p.presence === "Présent").length,
+      absents: cp.filter((p) => p.presence !== "Présent").length,
+      total: cp.length,
+    };
+  });
+
+  const byDate = Array.from(new Set(presences.map((p) => p.date)))
+    .sort((a, b) => b.localeCompare(a))
+    .slice(0, 10)
+    .map((date) => {
+      const dp = presences.filter((p) => p.date === date);
+      return {
+        date,
+        presents: dp.filter((p) => p.presence === "Présent").length,
+        absents: dp.filter((p) => p.presence !== "Présent").length,
+        total: dp.length,
+      };
+    });
+
+  const handleExportExcel = async () => {
+    setIsExporting(true);
+    try {
+      const res = await fetch("/api/report");
+      if (!res.ok) throw new Error("Erreur lors de l'export");
+      const buffer = await res.arrayBuffer();
+      downloadBlob(
+        buffer,
+        `rapport_presences_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.xlsx`,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      showToast("Rapport Excel téléchargé", "success");
+    } catch {
+      showToast("Erreur lors de l'export Excel", "error");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Export button */}
+      <div className="flex justify-end">
+        <button
+          onClick={handleExportExcel}
+          disabled={isExporting}
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#4a2b87] text-white text-sm font-medium rounded-xl hover:bg-[#5a3b97] transition-colors disabled:opacity-60"
+        >
+          {isExporting ? <Spinner className="border-white/30 border-t-white" /> : null}
+          Exporter Excel (.xlsx)
+        </button>
+      </div>
+
+      {/* Global Stats */}
+      <div>
+        <h3 className="text-base font-semibold text-[#4a2b87] mb-3">Résumé global</h3>
+        <div className="grid grid-cols-3 gap-4">
+          {[
+            { label: "Total présences", value: totalPresents, color: "bg-green-50 text-green-700 border-green-200" },
+            { label: "Total absences", value: totalAbsents, color: "bg-red-50 text-red-600 border-red-200" },
+            { label: "Total visiteurs", value: totalVisiteurs, color: "bg-blue-50 text-blue-700 border-blue-200" },
+          ].map((s) => (
+            <div key={s.label} className={`rounded-xl border p-4 text-center ${s.color}`}>
+              <div className="text-3xl font-bold">{s.value}</div>
+              <div className="text-sm mt-1">{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* By Category */}
+      <div>
+        <h3 className="text-base font-semibold text-[#4a2b87] mb-3">Par catégorie</h3>
+        <div className="overflow-x-auto rounded-xl border border-[#ede7f6]">
+          <table className="w-full text-sm">
+            <thead className="bg-[#f3eeff] text-[#4a2b87]">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold">Catégorie</th>
+                <th className="px-4 py-3 text-center font-semibold">Présents</th>
+                <th className="px-4 py-3 text-center font-semibold">Absents</th>
+                <th className="px-4 py-3 text-center font-semibold">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byCategory.map((row) => (
+                <tr key={row.cat} className="border-t border-[#f0ebff]">
+                  <td className="px-4 py-3 font-medium">{row.label}</td>
+                  <td className="px-4 py-3 text-center text-green-700">{row.presents}</td>
+                  <td className="px-4 py-3 text-center text-red-500">{row.absents}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{row.total}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Mobile Cards */}
-      <div className="lg:hidden flex-1 min-h-0 overflow-auto space-y-3 p-1 bg-gray-50 border border-gray-200 rounded-lg">
-        {filteredEntries.length === 0 ? (
-          <div className="bg-white rounded-lg p-8 text-center text-gray-400 border border-gray-200">
-            {searchName || filterCulte
-              ? "Aucune présence trouvée"
-              : "Aucune présence enregistrée"}
+      {/* By Culte */}
+      <div>
+        <h3 className="text-base font-semibold text-[#4a2b87] mb-3">Par culte</h3>
+        <div className="overflow-x-auto rounded-xl border border-[#ede7f6]">
+          <table className="w-full text-sm">
+            <thead className="bg-[#f3eeff] text-[#4a2b87]">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold">Culte</th>
+                <th className="px-4 py-3 text-center font-semibold">Présents</th>
+                <th className="px-4 py-3 text-center font-semibold">Absents</th>
+                <th className="px-4 py-3 text-center font-semibold">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byCulte.map((row) => (
+                <tr key={row.culte} className="border-t border-[#f0ebff]">
+                  <td className="px-4 py-3 font-medium">{row.culte}</td>
+                  <td className="px-4 py-3 text-center text-green-700">{row.presents}</td>
+                  <td className="px-4 py-3 text-center text-red-500">{row.absents}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{row.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* By Date */}
+      <div>
+        <h3 className="text-base font-semibold text-[#4a2b87] mb-3">Par date (10 dernières)</h3>
+        <div className="overflow-x-auto rounded-xl border border-[#ede7f6]">
+          <table className="w-full text-sm">
+            <thead className="bg-[#f3eeff] text-[#4a2b87]">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold">Date</th>
+                <th className="px-4 py-3 text-center font-semibold">Présents</th>
+                <th className="px-4 py-3 text-center font-semibold">Absents</th>
+                <th className="px-4 py-3 text-center font-semibold">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {byDate.map((row) => (
+                <tr key={row.date} className="border-t border-[#f0ebff]">
+                  <td className="px-4 py-3 font-medium">{row.date}</td>
+                  <td className="px-4 py-3 text-center text-green-700">{row.presents}</td>
+                  <td className="px-4 py-3 text-center text-red-500">{row.absents}</td>
+                  <td className="px-4 py-3 text-center font-semibold">{row.total}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Settings Tab ───────────────────────────────────────────────────────────────
+function formatCountdown(ms: number): string {
+  if (ms <= 0) return "Expirée";
+  const h = Math.floor(ms / 3_600_000);
+  const m = Math.floor((ms % 3_600_000) / 60_000);
+  const s = Math.floor((ms % 60_000) / 1_000);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function SettingsTab({
+  presenceCode,
+  sessionExpiry,
+}: {
+  presenceCode: string;
+  sessionExpiry: number | null;
+}) {
+  const [duration, setDuration] = useState("2");
+  const [isStarting, setIsStarting] = useState(false);
+  const [isStopping, setIsStopping] = useState(false);
+  const [remaining, setRemaining] = useState<number>(
+    sessionExpiry ? Math.max(0, sessionExpiry - Date.now()) : 0
+  );
+  const [currentCode, setCurrentCode] = useState(presenceCode);
+  const [currentExpiry, setCurrentExpiry] = useState(sessionExpiry);
+  const { showToast } = useToast();
+  const revalidator = useRevalidator();
+
+  const isActive = currentExpiry ? Date.now() < currentExpiry : false;
+
+  // Décompte chaque seconde
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const left = currentExpiry ? Math.max(0, currentExpiry - Date.now()) : 0;
+      setRemaining(left);
+    }, 1_000);
+    return () => clearInterval(interval);
+  }, [currentExpiry]);
+
+  const handleStart = async () => {
+    setIsStarting(true);
+    try {
+      const fd = new FormData();
+      fd.append("intent", "start");
+      fd.append("durationHours", duration);
+      const res = await fetch("/api/config", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentCode(data.code);
+        setCurrentExpiry(Date.now() + parseFloat(duration) * 3_600_000);
+        showToast(`Séance démarrée ! Code : ${data.code}`, "success");
+        revalidator.revalidate();
+      } else {
+        showToast(data.error || "Erreur lors du démarrage", "error");
+      }
+    } catch {
+      showToast("Erreur réseau", "error");
+    } finally {
+      setIsStarting(false);
+    }
+  };
+
+  const handleStop = async () => {
+    if (!confirm("Arrêter la séance en cours ?")) return;
+    setIsStopping(true);
+    try {
+      const fd = new FormData();
+      fd.append("intent", "stop");
+      const res = await fetch("/api/config", { method: "POST", body: fd });
+      const data = await res.json();
+      if (data.success) {
+        setCurrentExpiry(null);
+        setRemaining(0);
+        showToast("Séance arrêtée", "success");
+        revalidator.revalidate();
+      } else {
+        showToast("Erreur lors de l'arrêt", "error");
+      }
+    } catch {
+      showToast("Erreur réseau", "error");
+    } finally {
+      setIsStopping(false);
+    }
+  };
+
+  return (
+    <div className="max-w-lg space-y-6">
+
+      {/* Statut séance actuelle */}
+      <div className={`rounded-2xl border p-5 ${isActive ? "bg-green-50 border-green-200" : "bg-[#f3eeff] border-[#ede7f6]"}`}>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-semibold text-[#4a2b87]">Séance en cours</h3>
+          <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${isActive ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
+            {isActive ? "Active" : "Inactive"}
+          </span>
+        </div>
+
+        {isActive ? (
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500">Code actif :</span>
+              <span className="font-mono font-bold text-xl tracking-widest text-[#4a2b87]">
+                {currentCode}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500">Temps restant :</span>
+              <span className={`font-mono font-semibold text-lg ${remaining < 5 * 60_000 ? "text-red-500" : remaining < 15 * 60_000 ? "text-yellow-600" : "text-green-700"}`}>
+                {formatCountdown(remaining)}
+              </span>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <a
+                href="/display"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 text-center py-2.5 bg-[#4a2b87] text-white text-sm font-medium rounded-xl hover:bg-[#5a3b97] transition-colors"
+              >
+                Afficher sur vidéoprojecteur →
+              </a>
+              <button
+                onClick={handleStop}
+                disabled={isStopping}
+                className="px-4 py-2.5 bg-red-50 text-red-600 text-sm font-medium rounded-xl hover:bg-red-100 transition-colors disabled:opacity-60 border border-red-200"
+              >
+                {isStopping ? <Spinner className="border-red-200 border-t-red-600" /> : "Arrêter"}
+              </button>
+            </div>
           </div>
         ) : (
-          filteredEntries.map((e) => (
-            <div
-              key={e.id}
-              className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm"
-            >
-              <div className="flex justify-between items-start mb-2">
-                <div>
-                  <h3 className="font-medium text-gray-800">{e.nom}</h3>
-                  <p className="text-gray-500 font-mono text-sm">
-                    {e.telephone || "Aucune donnée"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="flex flex-col gap-1">
-                    <button
-                      onClick={() => handleEditClick(e)}
-                      className="p-2 rounded-lg text-[#4a2b87] bg-[#4a2b87]/10 hover:bg-[#4a2b87]/20 transition-colors"
-                    >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                        className="w-4 h-4"
-                      >
-                        <path d="M2.695 14.763l-1.262 3.154a.5.5 0 0 0 .65.65l3.155-1.262a4 4 0 0 0 1.343-.885L17.5 5.5a2.121 2.121 0 0 0-3-3L3.58 13.42a4 4 0 0 0-.885 1.343z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => handleDelete(e.id)}
-                      disabled={deletingPresenceId === e.id}
-                      className={`p-2 ${deletingPresenceId === e.id ? "pb-[0.08rem]" : "pb-2"} rounded-lg text-[#d32f2f] bg-[#d32f2f]/10 hover:bg-[#d32f2f]/20 transition-colors disabled:opacity-50 ${deletingPresenceId === e.id ? "opacity-50" : ""}`}
-                    >
-                      {deletingPresenceId === e.id ? (
-                        <Spinner className="w-4 h-4 border-[#d32f2f]/30 border-t-[#d32f2f]" />
-                      ) : (
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                          className="w-4 h-4"
-                        >
-                          <path
-                            fillRule="evenodd"
-                            d="M7.5 3a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v1H17a1 1 0 1 1 0 2h-1.084l-.765 10.372A2 2 0 0 1 13.158 18H6.842a2 2 0 0 1-1.993-1.628L4.084 6H3a1 1 0 1 1 0-2h4.5V3Z"
-                            clipRule="evenodd"
-                          />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              </div>
-              {e.presence === "Absent" && e.pkabsence && (
-                <div className="flex items-center justify-between text-sm mt-3 pt-3 border-t border-gray-100">
-                  <span className="text-gray-400 text-xs">{e.pkabsence}</span>
-                </div>
-              )}
-              <div className="flex items-center justify-between text-sm mt-3 pt-3 border-t border-gray-100">
-                <span className="px-2 py-0.5 rounded bg-[#ede7f6] text-[#4a2b87] font-medium text-xs">
-                  {e.culte}
-                </span>
-                {getPresenceBadge(e.presence, null)}
-                <span className="text-gray-400 text-xs">{e.date}</span>
-              </div>
-            </div>
-          ))
+          <p className="text-sm text-gray-500">
+            Aucune séance active. Démarrez une séance pour générer un code.
+          </p>
         )}
       </div>
 
-      <button
-        onClick={downloadCSV}
-        className="w-full mt-4 flex-shrink-0 border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md"
-      >
-        Télécharger la liste des présences
-      </button>
+      {/* Démarrer une nouvelle séance */}
+      <div className="rounded-2xl border border-[#ede7f6] p-5 space-y-4">
+        <h3 className="text-base font-semibold text-[#4a2b87]">
+          {isActive ? "Nouvelle séance (remplace l'actuelle)" : "Démarrer une séance"}
+        </h3>
+        <p className="text-sm text-gray-500">
+          Un code à 6 chiffres sera généré automatiquement et affiché sur le vidéoprojecteur.
+          Seules les personnes présentes en salle pourront le voir.
+        </p>
+        <div className="flex gap-3 items-end">
+          <div className="flex-1">
+            <label className="block text-xs text-gray-500 mb-1.5">Durée de la séance</label>
+            <select
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className="w-full border border-[#c7b8ea] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#4a2b87]/30"
+            >
+              <option value="1">1 heure</option>
+              <option value="2">2 heures</option>
+              <option value="3">3 heures</option>
+              <option value="4">4 heures</option>
+            </select>
+          </div>
+          <button
+            onClick={handleStart}
+            disabled={isStarting}
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#4a2b87] text-white text-sm font-medium rounded-xl hover:bg-[#5a3b97] transition-colors disabled:opacity-60"
+          >
+            {isStarting ? <Spinner className="border-white/30 border-t-white" /> : null}
+            {isStarting ? "Démarrage..." : "Démarrer"}
+          </button>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+// ─── Main Dashboard ─────────────────────────────────────────────────────────────
+export default function DashboardPage({ loaderData }: Route.ComponentProps) {
+  const { members, presences, visiteurs, presenceCode, sessionExpiry } = loaderData;
+  const [activeTab, setActiveTab] = useState<DashTab>("presences");
+
+  const tabs: { id: DashTab; label: string; count?: number }[] = [
+    { id: "presences", label: "Présences", count: presences.length },
+    { id: "members", label: "Membres", count: members.length },
+    { id: "visitors", label: "Visiteurs", count: visiteurs.length },
+    { id: "reports", label: "Rapports" },
+    { id: "settings", label: "Paramètres" },
+  ];
+
+  return (
+    <div className="min-h-screen bg-[#f8f5ff]">
+      <Header />
+
+      <main className="max-w-7xl mx-auto px-4 py-6">
+        {/* Tabs */}
+        <div className="flex gap-1 flex-wrap mb-6 bg-white rounded-2xl p-1.5 shadow-sm border border-[#ede7f6]">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? "bg-[#4a2b87] text-white shadow"
+                  : "text-[#4a2b87] hover:bg-[#f3eeff]"
+              }`}
+            >
+              {tab.label}
+              {tab.count !== undefined && (
+                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                  activeTab === tab.id
+                    ? "bg-white/20 text-white"
+                    : "bg-[#ede7f6] text-[#4a2b87]"
+                }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        <div className="bg-white rounded-2xl shadow-sm border border-[#ede7f6] p-6">
+          {activeTab === "presences" && <PresenceTable presences={presences} />}
+          {activeTab === "members" && <MemberTable members={members} />}
+          {activeTab === "visitors" && <VisitorTable visiteurs={visiteurs} />}
+          {activeTab === "reports" && <ReportsTab presences={presences} visiteurs={visiteurs} />}
+          {activeTab === "settings" && <SettingsTab presenceCode={presenceCode} sessionExpiry={sessionExpiry} />}
+        </div>
+      </main>
     </div>
   );
 }

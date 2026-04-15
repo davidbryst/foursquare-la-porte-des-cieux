@@ -8,7 +8,7 @@ const sessionStorage = createCookieSessionStorage({
     maxAge: 60 * 60 * 24 * 7, // 7 jours
     path: "/",
     sameSite: "lax",
-    secrets: ["presence-culte-secret-key-change-in-production"],
+    secrets: [process.env.SESSION_SECRET || "presence-culte-dev-secret-change-in-prod"],
     secure: process.env.NODE_ENV === "production",
   },
 });

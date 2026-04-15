@@ -14,8 +14,8 @@ export async function action({ request }: Route.ActionArgs) {
     );
   }
 
-  const admin = loginAdmin(username, password);
-  
+  const admin = await loginAdmin(username, password);
+
   if (admin) {
     return createUserSession(admin.username, "/dashboard");
   } else {
