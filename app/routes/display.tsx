@@ -76,7 +76,9 @@ export default function DisplayPage({ loaderData }: Route.ComponentProps) {
           to="/rollcall"
           className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
         >
-          📋 Liste d'appel
+          <span className="hidden sm:inline">📋</span>
+          <span>Liste d'appel</span>
+          {/* <span className="hidden sm:inline">Liste d'appel</span> */}
         </Link>
         <button
           onClick={toggleFullscreen}

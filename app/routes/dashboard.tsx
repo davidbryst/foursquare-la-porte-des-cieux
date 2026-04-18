@@ -91,7 +91,7 @@ function PresenceTable({ presences }: { presences: Presence[] }) {
     ]);
     const filename = `presences_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.xlsx`;
     const widths = [25, 25, 20, 20, 20, 15, 40];
-    
+
     try {
       const res = await fetch("/api/report", {
         method: "POST",
@@ -669,7 +669,7 @@ function ReportsTab({ presences, visiteurs }: { presences: Presence[]; visiteurs
       {/* Global Stats */}
       <div>
         <h3 className="text-base font-semibold text-[#4a2b87] mb-3">Résumé global</h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {[
             { label: "Total présences", value: totalPresents, color: "bg-green-50 text-green-700 border-green-200" },
             { label: "Total absences", value: totalAbsents, color: "bg-red-50 text-red-600 border-red-200" },
@@ -977,8 +977,9 @@ export default function DashboardPage({ loaderData }: Route.ComponentProps) {
               to="/rollcall"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4a2b87] text-white text-xs font-semibold rounded-lg hover:bg-[#5a3b97] transition-colors shadow-sm"
             >
-              <span>📋</span>
-              <span className="hidden sm:inline">Liste d'appel</span>
+              <span className="hidden sm:inline">📋</span>
+              <span>Liste d'appel</span>
+              {/* <span className="hidden sm:inline">Liste d'appel</span> */}
             </Link>
             <Link
               to="/"

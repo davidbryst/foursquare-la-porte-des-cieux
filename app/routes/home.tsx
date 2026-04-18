@@ -90,8 +90,9 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
               to="/rollcall"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4a2b87] text-white text-xs font-semibold rounded-lg hover:bg-[#5a3b97] transition-colors shadow-sm"
             >
-              <span>📋</span>
-              <span className="hidden sm:inline">Liste d'appel</span>
+              <span className="hidden sm:inline">📋</span>
+              <span>Liste d'appel</span>
+              {/* <span className="hidden sm:inline">Liste d'appel</span> */}
             </Link>
             <Link
               to="/dashboard"
