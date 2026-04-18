@@ -46,24 +46,28 @@ export default function VisitorEditModal() {
     }
   }, [selectedVisitor]);
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!selectedVisitor) return;
     if (!editNom.trim() || !editPrenom.trim()) {
       showToast('Le nom et le prénom sont obligatoires.', 'error');
       return;
     }
     setIsLoading(true);
-    if (onVisitorSave) {
-      onVisitorSave({
-        id: selectedVisitor.id,
-        nom: editNom.trim(),
-        prenom: editPrenom.trim(),
-        telephone: editTelephone.trim(),
-        culteId: editCulteId,
-        categorie: editCategorie,
-        age: editAge ? parseInt(editAge) : null,
-        provenance: editProvenance.trim(),
-      });
+    try {
+      if (onVisitorSave) {
+        await onVisitorSave({
+          id: selectedVisitor.id,
+          nom: editNom.trim(),
+          prenom: editPrenom.trim(),
+          telephone: editTelephone.trim(),
+          culteId: editCulteId,
+          categorie: editCategorie,
+          age: editAge ? parseInt(editAge) : null,
+          provenance: editProvenance.trim(),
+        });
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 

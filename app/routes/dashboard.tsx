@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useFetcher, useRevalidator } from "react-router";
+import { useFetcher, useRevalidator, Link } from "react-router";
 import type { Route } from "./+types/dashboard";
 import { getAllMembers, getAllPresences, getAllVisiteurs, getPresenceCode, getSessionExpiry } from "~/db/database.server";
 import { requireUser } from "~/utils/session.server";
@@ -9,7 +9,7 @@ import { useModal } from "~/context/ModalContext";
 import { Spinner } from "~/components/ui/Toast";
 import Header from "~/components/Header";
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [{ title: "Dashboard - Présence Culte" }];
 }
 
@@ -63,13 +63,71 @@ function PresenceTable({ presences }: { presences: Presence[] }) {
     if (!confirm("Supprimer cette présence ?")) return;
     const fd = new FormData();
     fd.append("_method", "DELETE");
+    fd.append("id", String(id));
     fetcher.submit(fd, { method: "delete", action: `/api/presences/${id}` });
-    showToast("Présence supprimée", "success");
-    setTimeout(() => revalidator.revalidate(), 400);
+  };
+
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) {
+      if ((fetcher.data as any).success) {
+        showToast("Supprimé avec succès", "success");
+        revalidator.revalidate();
+      } else if ((fetcher.data as any).error) {
+        showToast((fetcher.data as any).error, "error");
+      }
+    }
+  }, [fetcher.state, fetcher.data]);
+
+  const handleDownloadExcel = async () => {
+    const headers = ["Nom", "Prénom", "Catégorie", "Culte", "Date", "Statut", "Raison Absence"];
+    const rows = filtered.map((p) => [
+      p.nom,
+      p.prenom,
+      CATEGORY_LABELS[p.categorie || "hommes"] || p.categorie || "—",
+      p.culte,
+      p.date,
+      p.presence,
+      p.pkabsence || "",
+    ]);
+    const filename = `presences_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.xlsx`;
+    const widths = [25, 25, 20, 20, 20, 15, 40];
+    
+    try {
+      const res = await fetch("/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetName: "Présences", filename, headers, rows, widths })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        downloadBlob(await blob.arrayBuffer(), filename, res.headers.get("Content-Type") || "");
+      } else {
+        showToast("Erreur lors de la génération Excel", "error");
+      }
+    } catch (err) {
+      showToast("Erreur réseau", "error");
+    }
   };
 
   return (
     <div>
+      {/* Accès liste d'appel */}
+      <a
+        href="/rollcall"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center justify-between gap-3 mb-5 px-4 py-3 bg-[#4a2b87] text-white rounded-xl hover:bg-[#5a3b97] transition-colors shadow-sm group"
+      >
+        <div className="flex items-center gap-3">
+          <span className="text-xl">📋</span>
+          <div>
+            <p className="font-semibold text-sm">Liste d'appel (Roll Call)</p>
+            <p className="text-white/70 text-xs">Cochez les présences directement sur la liste complète</p>
+          </div>
+        </div>
+        <span className="text-white/60 group-hover:text-white transition-colors text-lg">→</span>
+      </a>
+
       <div className="flex flex-wrap gap-3 mb-4 items-center">
         <input
           type="text"
@@ -88,7 +146,14 @@ function PresenceTable({ presences }: { presences: Presence[] }) {
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
-        <span className="text-sm text-gray-500 ml-auto">{filtered.length} résultat(s)</span>
+        <button
+          onClick={handleDownloadExcel}
+          className="ml-auto flex items-center gap-2 px-4 py-2 bg-[#4a2b87] text-white text-sm rounded-lg hover:bg-[#5a3b97] transition-colors shadow-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+          Télécharger Excel
+        </button>
+        <span className="text-sm text-gray-500">{filtered.length} résultat(s)</span>
       </div>
       <div className="overflow-x-auto rounded-xl border border-[#ede7f6]">
         <table className="w-full text-sm">
@@ -114,6 +179,7 @@ function PresenceTable({ presences }: { presences: Presence[] }) {
               filtered.map((p) => (
                 <tr key={p.id} className="border-t border-[#f0ebff] hover:bg-[#faf8ff] transition-colors">
                   <td className="px-4 py-3 font-medium">{p.nom}</td>
+                  <td className="px-4 py-3 font-medium">{p.prenom}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-[#ede7f6] text-[#4a2b87]">
                       {CATEGORY_LABELS[p.categorie || "hommes"] || "—"}
@@ -122,19 +188,22 @@ function PresenceTable({ presences }: { presences: Presence[] }) {
                   <td className="px-4 py-3">{p.culte}</td>
                   <td className="px-4 py-3 text-gray-600">{p.date}</td>
                   <td className="px-4 py-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                      p.presence === "Présent"
-                        ? "bg-green-100 text-green-700"
-                        : "bg-red-100 text-red-600"
-                    }`}>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${p.presence === "Présent"
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-600"
+                      }`}>
                       {p.presence}
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => handleDelete(p.id)}
-                      className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                      disabled={fetcher.state !== "idle"}
+                      className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center justify-center gap-1 mx-auto"
                     >
+                      {fetcher.state !== "idle" && fetcher.formData?.get("id") === String(p.id) ? (
+                        <Spinner className="w-3 h-3 border-red-200 border-t-red-600" />
+                      ) : null}
                       Supprimer
                     </button>
                   </td>
@@ -154,7 +223,7 @@ function MemberTable({ members }: { members: Member[] }) {
   const [search, setSearch] = useState("");
   const fetcher = useFetcher();
   const { showToast } = useToast();
-  const { openMemberModal, setMemberSaveHandler } = useModal();
+  const { openMemberModal, closeMemberModal, setMemberSaveHandler } = useModal();
   const revalidator = useRevalidator();
 
   const filtered = members.filter((m) => {
@@ -170,10 +239,21 @@ function MemberTable({ members }: { members: Member[] }) {
 
   const handleDelete = (id: number, name: string) => {
     if (!confirm(`Supprimer le membre "${name}" ?`)) return;
-    fetcher.submit(null, { method: "delete", action: `/api/members/${id}` });
-    showToast("Membre supprimé", "success");
-    setTimeout(() => revalidator.revalidate(), 400);
+    const fd = new FormData();
+    fd.append("id", String(id));
+    fetcher.submit(fd, { method: "delete", action: `/api/members/${id}` });
   };
+
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) {
+      if ((fetcher.data as any).success) {
+        showToast("Membre supprimé", "success");
+        revalidator.revalidate();
+      } else if ((fetcher.data as any).error) {
+        showToast((fetcher.data as any).error, "error");
+      }
+    }
+  }, [fetcher.state, fetcher.data]);
 
   const handleEdit = (member: Member) => {
     setMemberSaveHandler(async (payload) => {
@@ -188,11 +268,41 @@ function MemberTable({ members }: { members: Member[] }) {
       if (data.success) {
         showToast("Membre modifié avec succès", "success");
         revalidator.revalidate();
+        closeMemberModal();
       } else {
         showToast(data.error || "Erreur lors de la modification", "error");
       }
     });
     openMemberModal(member);
+  };
+
+  const handleDownloadExcel = async () => {
+    const headers = ["Nom", "Prénom", "Téléphone", "Catégorie", "Date d'Inscription"];
+    const rows = filtered.map((m) => [
+      m.nom,
+      m.prenom,
+      m.numero || "",
+      CATEGORY_LABELS[m.categorie || "hommes"] || m.categorie || "Hommes",
+      m.dateDeNaissance || "", // Utilisé comme date d'inscription dans le modèle actuel apparemment
+    ]);
+    const filename = `membres_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.xlsx`;
+    const widths = [25, 25, 22, 20, 25];
+
+    try {
+      const res = await fetch("/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetName: "Membres", filename, headers, rows, widths })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        downloadBlob(await blob.arrayBuffer(), filename, res.headers.get("Content-Type") || "");
+      } else {
+        showToast("Erreur lors de la génération Excel", "error");
+      }
+    } catch (err) {
+      showToast("Erreur réseau", "error");
+    }
   };
 
   return (
@@ -215,7 +325,14 @@ function MemberTable({ members }: { members: Member[] }) {
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
-        <span className="text-sm text-gray-500 ml-auto">{filtered.length} membre(s)</span>
+        <button
+          onClick={handleDownloadExcel}
+          className="ml-auto flex items-center gap-2 px-4 py-2 bg-[#4a2b87] text-white text-sm rounded-lg hover:bg-[#5a3b97] transition-colors shadow-sm"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+          Télécharger Excel
+        </button>
+        <span className="text-sm text-gray-500">{filtered.length} membre(s)</span>
       </div>
       <div className="overflow-x-auto rounded-xl border border-[#ede7f6]">
         <table className="w-full text-sm">
@@ -270,8 +387,12 @@ function MemberTable({ members }: { members: Member[] }) {
                       </button>
                       <button
                         onClick={() => handleDelete(m.id, `${m.nom} ${m.prenom}`)}
-                        className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                        disabled={fetcher.state !== "idle"}
+                        className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-1"
                       >
+                        {fetcher.state !== "idle" && fetcher.formData?.get("id") === String(m.id) ? (
+                          <Spinner className="w-3 h-3 border-red-200 border-t-red-600" />
+                        ) : null}
                         Supprimer
                       </button>
                     </div>
@@ -292,7 +413,7 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
   const [search, setSearch] = useState("");
   const fetcher = useFetcher();
   const { showToast } = useToast();
-  const { openVisitorModal, setVisitorSaveHandler } = useModal();
+  const { openVisitorModal, closeVisitorModal, setVisitorSaveHandler } = useModal();
   const revalidator = useRevalidator();
 
   const filtered = visiteurs.filter((v) => {
@@ -308,10 +429,21 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
 
   const handleDelete = (id: number, name: string) => {
     if (!confirm(`Supprimer le visiteur "${name}" ?`)) return;
-    fetcher.submit(null, { method: "delete", action: `/api/visitors/${id}` });
-    showToast("Visiteur supprimé", "success");
-    setTimeout(() => revalidator.revalidate(), 400);
+    const fd = new FormData();
+    fd.append("id", String(id));
+    fetcher.submit(fd, { method: "delete", action: `/api/visitors/${id}` });
   };
+
+  useEffect(() => {
+    if (fetcher.state === "idle" && fetcher.data) {
+      if ((fetcher.data as any).success) {
+        showToast("Visiteur supprimé", "success");
+        revalidator.revalidate();
+      } else if ((fetcher.data as any).error) {
+        showToast((fetcher.data as any).error, "error");
+      }
+    }
+  }, [fetcher.state, fetcher.data]);
 
   const handleEdit = (v: Visiteur) => {
     setVisitorSaveHandler(async (payload) => {
@@ -328,6 +460,7 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
       if (data.success) {
         showToast("Visiteur modifié avec succès", "success");
         revalidator.revalidate();
+        closeVisitorModal();
       } else {
         showToast(data.error || "Erreur lors de la modification", "error");
       }
@@ -335,20 +468,30 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
     openVisitorModal(v);
   };
 
-  const handleDownloadCSV = () => {
+  const handleDownloadExcel = async () => {
     const headers = ["Nom", "Prénom", "Téléphone", "Catégorie", "Âge", "Culte", "Date", "Provenance"];
-    const rows = visiteurs.map((v) => [
+    const rows = filtered.map((v) => [
       v.nom, v.prenom, v.telephone || "", CATEGORY_LABELS[v.categorie] || v.categorie,
       v.age ?? "", v.culte, v.date, v.provenance || "",
     ]);
-    const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `visiteurs_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const filename = `visiteurs_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.xlsx`;
+    const widths = [25, 25, 22, 20, 10, 20, 20, 40];
+
+    try {
+      const res = await fetch("/api/report", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sheetName: "Visiteurs", filename, headers, rows, widths })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        downloadBlob(await blob.arrayBuffer(), filename, res.headers.get("Content-Type") || "");
+      } else {
+        showToast("Erreur lors de la génération Excel", "error");
+      }
+    } catch (err) {
+      showToast("Erreur réseau", "error");
+    }
   };
 
   return (
@@ -372,10 +515,11 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
           ))}
         </select>
         <button
-          onClick={handleDownloadCSV}
-          className="ml-auto flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+          onClick={handleDownloadExcel}
+          className="ml-auto flex items-center gap-2 px-4 py-2 bg-[#4a2b87] text-white text-sm rounded-lg hover:bg-[#5a3b97] transition-colors shadow-sm"
         >
-          Télécharger CSV
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+          Télécharger Excel
         </button>
         <span className="text-sm text-gray-500">{filtered.length} visiteur(s)</span>
       </div>
@@ -426,8 +570,12 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
                       </button>
                       <button
                         onClick={() => handleDelete(v.id, `${v.nom} ${v.prenom}`)}
-                        className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                        disabled={fetcher.state !== "idle"}
+                        className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-1"
                       >
+                        {fetcher.state !== "idle" && fetcher.formData?.get("id") === String(v.id) ? (
+                          <Spinner className="w-3 h-3 border-red-200 border-t-red-600" />
+                        ) : null}
                         Supprimer
                       </button>
                     </div>
@@ -792,52 +940,91 @@ function SettingsTab({
   );
 }
 
-// ─── Main Dashboard ─────────────────────────────────────────────────────────────
+// ─── Main Dashboard ──────────────────────────────────────────────────────
 export default function DashboardPage({ loaderData }: Route.ComponentProps) {
   const { members, presences, visiteurs, presenceCode, sessionExpiry } = loaderData;
   const [activeTab, setActiveTab] = useState<DashTab>("presences");
 
-  const tabs: { id: DashTab; label: string; count?: number }[] = [
-    { id: "presences", label: "Présences", count: presences.length },
-    { id: "members", label: "Membres", count: members.length },
-    { id: "visitors", label: "Visiteurs", count: visiteurs.length },
-    { id: "reports", label: "Rapports" },
-    { id: "settings", label: "Paramètres" },
+  const tabs: { id: DashTab; label: string; count?: number; icon: string }[] = [
+    { id: "presences", label: "Présences", count: presences.length, icon: "✅" },
+    { id: "members", label: "Membres", count: members.length, icon: "👥" },
+    { id: "visitors", label: "Visiteurs", count: visiteurs.length, icon: "👋" },
+    { id: "reports", label: "Rapports", icon: "📊" },
+    { id: "settings", label: "Paramètres", icon: "⚙️" },
   ];
 
   return (
-    <div className="min-h-screen bg-[#f8f5ff]">
-      <Header />
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      {/* Header sticky — style rollcall */}
+      <header className="bg-white/80 backdrop-blur-xl border-b border-white shadow-sm sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          {/* Logo + Titre */}
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src="https://image2url.com/images/1764243038241-9886220a-7dd9-4dc5-a8e7-8ded2d536163.png"
+              alt="Logo"
+              className="w-9 h-9 object-contain drop-shadow-sm shrink-0"
+            />
+            <div className="min-w-0">
+              <h1 className="text-[#4a2b87] font-bold text-base leading-tight">Dashboard</h1>
+              <p className="text-gray-400 text-xs leading-tight hidden sm:block">Assemblée La Porte des Cieux</p>
+            </div>
+          </div>
 
-      <main className="max-w-7xl mx-auto px-4 py-6">
-        {/* Tabs */}
-        <div className="flex gap-1 flex-wrap mb-6 bg-white rounded-2xl p-1.5 shadow-sm border border-[#ede7f6]">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                activeTab === tab.id
-                  ? "bg-[#4a2b87] text-white shadow"
-                  : "text-[#4a2b87] hover:bg-[#f3eeff]"
-              }`}
+          {/* Actions nav */}
+          <div className="flex items-center gap-2">
+            <Link
+              to="/rollcall"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4a2b87] text-white text-xs font-semibold rounded-lg hover:bg-[#5a3b97] transition-colors shadow-sm"
             >
-              {tab.label}
-              {tab.count !== undefined && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full ${
-                  activeTab === tab.id
-                    ? "bg-white/20 text-white"
-                    : "bg-[#ede7f6] text-[#4a2b87]"
-                }`}>
-                  {tab.count}
-                </span>
-              )}
-            </button>
-          ))}
+              <span>📋</span>
+              <span className="hidden sm:inline">Liste d'appel</span>
+            </Link>
+            <Link
+              to="/"
+              className="px-3 py-1.5 bg-white border border-purple-200 text-[#4a2b87] text-xs font-medium rounded-lg hover:bg-purple-50 transition-colors"
+            >
+              Accueil
+            </Link>
+            <Link
+              to="/api/auth/logout"
+              className="px-3 py-1.5 bg-red-50 border border-red-200 text-red-600 text-xs font-medium rounded-lg hover:bg-red-100 transition-colors"
+            >
+              Déconnexion
+            </Link>
+          </div>
         </div>
 
-        {/* Tab Content */}
-        <div className="bg-white rounded-2xl shadow-sm border border-[#ede7f6] p-6">
+        {/* Tabs — pills style rollcall */}
+        <div className="max-w-7xl mx-auto px-4 pb-3">
+          <div className="flex gap-1.5 flex-wrap">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                id={`dash-tab-${tab.id}`}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${activeTab === tab.id
+                  ? "bg-[#4a2b87] text-white shadow"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+              >
+                <span>{tab.icon}</span>
+                {tab.label}
+                {tab.count !== undefined && (
+                  <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === tab.id ? "bg-white/20 text-white" : "bg-[#ede7f6] text-[#4a2b87]"
+                    }`}>
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      </header>
+
+      {/* Contenu */}
+      <main className="max-w-7xl mx-auto w-full px-4 py-6 flex-1">
+        <div className="bg-white/80 backdrop-blur-xl rounded-3xl shadow-xl shadow-[#4a2b87]/5 border border-white p-6">
           {activeTab === "presences" && <PresenceTable presences={presences} />}
           {activeTab === "members" && <MemberTable members={members} />}
           {activeTab === "visitors" && <VisitorTable visiteurs={visiteurs} />}

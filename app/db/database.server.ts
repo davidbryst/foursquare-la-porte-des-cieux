@@ -32,6 +32,7 @@ export interface Member {
 export interface Presence {
   id: number;
   nom: string;
+  prenom: string;
   telephone: string;
   presence: string;
   culte: string;
@@ -338,17 +339,17 @@ export async function getAllPresences(): Promise<Presence[]> {
   `);
 
   return result.rows.map((row: any) => {
-    const nomComplet = `${row.nom || ""} ${row.prenom || ""}`.trim();
     const culteLabel =
       row.culteId === 1
         ? "1er culte"
         : row.culteId === 2
-        ? "2ème culte"
-        : `Culte ${row.culteId}`;
+          ? "2ème culte"
+          : `Culte ${row.culteId}`;
 
     return {
       id: row.id,
-      nom: nomComplet || "Inconnu",
+      nom: row.nom || "Inconnu",
+      prenom: row.prenom || "Inconnu",
       telephone: row.numero || "N/A",
       presence: row.presence === 1 ? "Présent" : "Absent",
       culte: culteLabel,

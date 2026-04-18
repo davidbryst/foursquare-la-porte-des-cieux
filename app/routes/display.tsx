@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
-import { useRevalidator } from "react-router";
+import { useRevalidator, Link } from "react-router";
 import type { Route } from "./+types/display";
 import { requireUser } from "~/utils/session.server";
 import { getPresenceCode, getSessionExpiry } from "~/db/database.server";
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [{ title: "Code de séance - Présence Culte" }];
 }
 
@@ -64,14 +64,20 @@ export default function DisplayPage({ loaderData }: Route.ComponentProps) {
 
   return (
     <div className="min-h-screen bg-[#1a0e2e] flex flex-col items-center justify-center select-none">
-      {/* Bouton retour + plein écran */}
+      {/* Bouton retour + rollcall + plein écran */}
       <div className="fixed top-4 right-4 flex gap-2 z-10">
-        <a
-          href="/dashboard"
+        <Link
+          to="/dashboard"
           className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
         >
           ← Dashboard
-        </a>
+        </Link>
+        <Link
+          to="/rollcall"
+          className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
+        >
+          📋 Liste d'appel
+        </Link>
         <button
           onClick={toggleFullscreen}
           className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
@@ -105,13 +111,12 @@ export default function DisplayPage({ loaderData }: Route.ComponentProps) {
             <p className="text-white/40 text-sm uppercase tracking-wider">
               Temps restant
             </p>
-            <p className={`font-mono font-semibold tabular-nums ${
-              remaining < 5 * 60_000
-                ? "text-red-400"
-                : remaining < 15 * 60_000
+            <p className={`font-mono font-semibold tabular-nums ${remaining < 5 * 60_000
+              ? "text-red-400"
+              : remaining < 15 * 60_000
                 ? "text-yellow-400"
                 : "text-white/80"
-            }`}
+              }`}
               style={{ fontSize: "clamp(2rem, 6vw, 4rem)" }}>
               {formatCountdown(remaining)}
             </p>

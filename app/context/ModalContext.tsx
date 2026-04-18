@@ -40,12 +40,12 @@ type ModalContextType = {
   closePresenceModal: () => void;
   openVisitorModal: (visitor: any) => void;
   closeVisitorModal: () => void;
-  onMemberSave?: (payload: MemberSavePayload) => void;
-  setMemberSaveHandler: (handler: (payload: MemberSavePayload) => void) => void;
-  onPresenceSave?: (payload: PresenceSavePayload) => void;
-  setPresenceSaveHandler: (handler: (payload: PresenceSavePayload) => void) => void;
-  onVisitorSave?: (payload: VisitorSavePayload) => void;
-  setVisitorSaveHandler: (handler: (payload: VisitorSavePayload) => void) => void;
+  onMemberSave?: (payload: MemberSavePayload) => Promise<void>;
+  setMemberSaveHandler: (handler: (payload: MemberSavePayload) => Promise<void>) => void;
+  onPresenceSave?: (payload: PresenceSavePayload) => Promise<void>;
+  setPresenceSaveHandler: (handler: (payload: PresenceSavePayload) => Promise<void>) => void;
+  onVisitorSave?: (payload: VisitorSavePayload) => Promise<void>;
+  setVisitorSaveHandler: (handler: (payload: VisitorSavePayload) => Promise<void>) => void;
 };
 
 const ModalContext = createContext<ModalContextType | undefined>(undefined);

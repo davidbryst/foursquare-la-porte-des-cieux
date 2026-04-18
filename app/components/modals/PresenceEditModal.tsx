@@ -33,7 +33,7 @@ export default function PresenceEditModal() {
     }
   }, [selectedPresence]);
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!selectedPresence) return;
 
     // Vérifier la raison si absent
@@ -44,15 +44,20 @@ export default function PresenceEditModal() {
 
     setIsLoading(true);
 
-    if (onPresenceSave) {
-      onPresenceSave({
-        id: selectedPresence.id,
-        presenceStatus: editPresenceStatus,
-        culte: editCulte,
-        pkabsence: editPresenceStatus === 'Absent' ? editRaisonAbsence.trim() : null,
-      });
+    try {
+      if (onPresenceSave) {
+        await onPresenceSave({
+          id: selectedPresence.id,
+          presenceStatus: editPresenceStatus,
+          culte: editCulte,
+          pkabsence: editPresenceStatus === 'Absent' ? editRaisonAbsence.trim() : null,
+        });
+      }
+      // Ne pas fermer la modale ici si le dashboard le fait, mais ce n'est pas utilisé dans le dashboard actuellement.
+      // S'il est utilisé ailleurs, la modale sera fermée manuellement via success callbacks de onPresenceSave
+    } finally {
+      setIsLoading(false);
     }
-    // Ne pas fermer la modale ici - le dashboard le fera après succès
   };
 
   if (!isPresenceModalOpen) return null;

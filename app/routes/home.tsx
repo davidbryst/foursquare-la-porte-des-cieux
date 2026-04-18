@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useFetcher } from "react-router";
+import { useFetcher, Link } from "react-router";
 import type { Route } from "./+types/home";
 import { getAllMembers } from "~/db/database.server";
 import type { Member } from "~/db/database.server";
@@ -7,7 +7,7 @@ import Header from "~/components/Header";
 import { useToast } from "~/context/ToastContext";
 import { Spinner } from "~/components/ui/Toast";
 
-export function meta({}: Route.MetaArgs) {
+export function meta({ }: Route.MetaArgs) {
   return [
     { title: "Présence Culte - Accueil" },
     { name: "description", content: "Gestion des présences au culte" },
@@ -26,28 +26,23 @@ const CATEGORIES = [
   { value: "hommes", label: "Hommes" },
 ];
 
-type HomeTab = "inscription" | "presence" | "visiteur";
+type HomeTab = "inscription" | "visiteur";
+
+const TAB_LABELS: Record<HomeTab, string> = {
+  inscription: "Inscription",
+  visiteur: "Visiteur",
+};
 
 // ─── Composant principal ────────────────────────────────────────────────────
 export default function HomePage({ loaderData }: Route.ComponentProps) {
   const { members: initialMembers } = loaderData;
 
-  // Verrou d'accès (réinitialisé à chaque chargement de page — aucun stockage)
-  const [isUnlocked, setIsUnlocked] = useState(false);
   const [activeTab, setActiveTab] = useState<HomeTab>("inscription");
   const [members, setMembers] = useState<Member[]>(initialMembers);
 
-  const unlockFetcher = useFetcher();
   const memberFetcher = useFetcher();
-  const presenceFetcher = useFetcher();
   const visiteurFetcher = useFetcher();
   const { showToast } = useToast();
-
-  // Résultat déverrouillage
-  useEffect(() => {
-    if (unlockFetcher.data?.success) setIsUnlocked(true);
-    if (unlockFetcher.data?.error) showToast(unlockFetcher.data.error, "error");
-  }, [unlockFetcher.data]);
 
   // Résultat ajout membre
   useEffect(() => {
@@ -55,23 +50,15 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
       showToast("Membre enregistré avec succès !", "success");
       fetch("/api/members")
         .then((r) => r.json())
-        .then((d) => { setMembers(d.members); setActiveTab("presence"); });
+        .then((d) => { setMembers(d.members); });
     }
     if (memberFetcher.data?.exists) {
-      showToast("Ce membre existe déjà. Vous êtes déjà enregistré !", "warning");
-      setActiveTab("presence");
+      showToast("Ce membre existe déjà.", "warning");
     }
     if (memberFetcher.data?.error && !memberFetcher.data?.exists) {
       showToast(memberFetcher.data.error, "error");
     }
   }, [memberFetcher.data]);
-
-  // Résultat ajout présence
-  useEffect(() => {
-    if (presenceFetcher.data?.success) showToast("Présence enregistrée avec succès !", "success");
-    if (presenceFetcher.data?.duplicate) showToast("Vous avez déjà enregistré votre présence pour ce culte aujourd'hui !", "warning");
-    if (presenceFetcher.data?.error && !presenceFetcher.data?.duplicate) showToast(presenceFetcher.data.error, "error");
-  }, [presenceFetcher.data]);
 
   // Résultat ajout visiteur
   useEffect(() => {
@@ -79,64 +66,76 @@ export default function HomePage({ loaderData }: Route.ComponentProps) {
     if (visiteurFetcher.data?.error) showToast(visiteurFetcher.data.error, "error");
   }, [visiteurFetcher.data]);
 
-  // ── Écran de verrou ──────────────────────────────────────────────────────
-  if (!isUnlocked) {
-    return (
-      <section className="flex justify-center items-center min-h-screen py-4 px-3">
-        <div className="relative flex flex-col gap-6 z-10 w-full max-w-sm p-6 sm:p-8 rounded-2xl bg-white border border-gray-200 shadow-xl mx-auto mobile-fixed-card-2">
-          <Header />
-          <div className="flex flex-col items-center gap-2 mt-2">
-            <div className="w-14 h-14 rounded-full bg-[#ede7f6] flex items-center justify-center mb-1">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-[#4a2b87]">
-                <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 0 0-5.25 5.25v3a3 3 0 0 0-3 3v6.75a3 3 0 0 0 3 3h10.5a3 3 0 0 0 3-3v-6.75a3 3 0 0 0-3-3v-3c0-2.9-2.35-5.25-5.25-5.25Zm3.75 8.25v-3a3.75 3.75 0 1 0-7.5 0v3h7.5Z" clipRule="evenodd" />
-              </svg>
-            </div>
-            <h1 className="text-xl font-semibold text-gray-800 text-center">Accès sécurisé</h1>
-            <p className="text-gray-500 text-sm text-center">Saisissez le code d'accès pour continuer.</p>
-          </div>
-          <UnlockForm fetcher={unlockFetcher} />
-          <p className="italic text-[#4a2b87] text-center text-xs bg-[#ede7f6] p-3 rounded-lg">
-            "La maturité pour une pêche abondante en eau profonde." — Luc 5:4
-          </p>
-        </div>
-      </section>
-    );
-  }
-
-  // ── Application principale ───────────────────────────────────────────────
   return (
-    <section className="flex justify-center items-center min-h-screen py-4 sm:py-8 px-3 sm:px-4">
-      <div className="relative flex flex-col gap-4 z-10 w-full max-w-lg p-4 sm:p-6 md:p-8 rounded-lg bg-white border border-gray-200 shadow-lg mx-auto overflow-hidden mobile-fixed-card">
-        <Header />
+    <div className="min-h-screen flex flex-col" style={{ fontFamily: "'Poppins', sans-serif" }}>
+      {/* Header sticky — même style que rollcall */}
+      <header className="bg-white/90 backdrop-blur border-b border-purple-100 sticky top-0 z-20 shadow-sm">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+          {/* Logo + Titre */}
+          <div className="flex items-center gap-3 min-w-0">
+            <img
+              src="https://image2url.com/images/1764243038241-9886220a-7dd9-4dc5-a8e7-8ded2d536163.png"
+              alt="Logo"
+              className="w-9 h-9 object-contain drop-shadow-sm shrink-0"
+            />
+            <div className="min-w-0">
+              <h1 className="text-[#4a2b87] font-bold text-base leading-tight truncate">Présence Culte</h1>
+              <p className="text-gray-400 text-xs leading-tight hidden sm:block">Assemblée La Porte des Cieux</p>
+            </div>
+          </div>
 
-        {/* Onglets */}
-        <div className="flex border-b border-gray-200 gap-0 flex-shrink-0">
-          {(["inscription", "presence", "visiteur"] as HomeTab[]).map((tab) => {
-            const labels: Record<HomeTab, string> = { inscription: "Inscription", presence: "Présence", visiteur: "Visiteur" };
-            return (
-              <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`flex-1 px-2 py-2.5 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap ${
-                  activeTab === tab ? "text-[#4a2b87] border-b-2 border-[#4a2b87]" : "text-gray-500 hover:text-gray-700"
-                }`}>
-                {labels[tab]}
+          {/* Liens nav */}
+          <div className="flex items-center gap-2">
+            <Link
+              to="/rollcall"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4a2b87] text-white text-xs font-semibold rounded-lg hover:bg-[#5a3b97] transition-colors shadow-sm"
+            >
+              <span>📋</span>
+              <span className="hidden sm:inline">Liste d'appel</span>
+            </Link>
+            <Link
+              to="/dashboard"
+              target="_blank"
+              className="px-3 py-1.5 bg-white border border-purple-200 text-[#4a2b87] text-xs font-medium rounded-lg hover:bg-purple-50 transition-colors"
+            >
+              Dashboard →
+            </Link>
+          </div>
+        </div>
+
+        {/* Tabs — pills comme rollcall */}
+        <div className="max-w-2xl mx-auto px-4 pb-3">
+          <div className="flex gap-1.5">
+            {(["inscription", "visiteur"] as HomeTab[]).map((tab) => (
+              <button
+                key={tab}
+                id={`home-tab-${tab}`}
+                onClick={() => setActiveTab(tab)}
+                className={`px-4 py-1.5 rounded-full text-xs font-semibold transition-all ${activeTab === tab
+                  ? "bg-[#4a2b87] text-white shadow"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                  }`}
+              >
+                {TAB_LABELS[tab]}
               </button>
-            );
-          })}
+            ))}
+          </div>
         </div>
+      </header>
 
-        <div className="mobile-scroll-content flex-1 min-h-0 overflow-y-auto flex flex-col">
-          {activeTab === "inscription" && (
-            <MemberForm fetcher={memberFetcher} onSwitchToPresence={() => setActiveTab("presence")} />
-          )}
-          {activeTab === "presence" && (
-            <PresenceForm members={members} fetcher={presenceFetcher} onSwitchToRegister={() => setActiveTab("inscription")} />
-          )}
-          {activeTab === "visiteur" && (
-            <VisiteurForm fetcher={visiteurFetcher} />
-          )}
-        </div>
-      </div>
-    </section>
+      {/* Contenu */}
+      <main className="max-w-2xl mx-auto w-full px-4 py-6 flex-1">
+        {activeTab === "inscription" && <MemberForm fetcher={memberFetcher} />}
+        {activeTab === "visiteur" && <VisiteurForm fetcher={visiteurFetcher} />}
+      </main>
+
+      {/* Footer discret */}
+      <footer className="text-center pb-6 pt-2">
+        <p className="italic text-[#4a2b87] text-xs bg-white/60 backdrop-blur inline-block px-4 py-2 rounded-full border border-purple-100">
+          « La maturité pour une pêche abondante en eau profonde. » — Luc 5:4
+        </p>
+      </footer>
+    </div>
   );
 }
 
@@ -169,13 +168,11 @@ function UnlockForm({ fetcher }: { fetcher: ReturnType<typeof useFetcher> }) {
   );
 }
 
-// ─── Formulaire inscription membre ──────────────────────────────────────────
+// ─── Formulaire inscription membre ──────────────────────────────────────────────
 function MemberForm({
   fetcher,
-  onSwitchToPresence,
 }: {
   fetcher: ReturnType<typeof useFetcher>;
-  onSwitchToPresence: () => void;
 }) {
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
@@ -225,11 +222,12 @@ function MemberForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="animate-fadeIn flex flex-col h-full flex-1 justify-between pt-2">
-      <div className="flex flex-col gap-4">
-        <div>
-          <h1 className="text-center text-gray-800 text-lg sm:text-xl my-1 font-semibold">Enregistrement de nouveau membre</h1>
-          <p className="text-center text-gray-500 text-sm mb-2">Bienvenue ! Remplissez ce formulaire pour vous inscrire.</p>
+    <form onSubmit={handleSubmit} className="animate-fadeIn">
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white shadow-xl shadow-[#4a2b87]/5 p-6 space-y-5">
+        {/* En-tête */}
+        <div className="text-center">
+          <h2 className="text-gray-800 text-lg font-semibold">Nouveau membre</h2>
+          <p className="text-gray-500 text-sm mt-1">Remplissez ce formulaire pour vous inscrire.</p>
         </div>
 
         {/* Photo optionnelle */}
@@ -278,20 +276,18 @@ function MemberForm({
             </select>
           </div>
         </div>
-      </div>
+      </div>{/* fin card */}
 
+      {/* Actions */}
       <div className="mt-4 space-y-3">
         <button type="submit" disabled={isSubmitting}
-          className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
+          className="w-full rounded-xl py-3 px-4 font-semibold cursor-pointer transition-all duration-200 text-sm bg-[#4a2b87] text-white hover:bg-[#5a3b97] shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">
           {isSubmitting ? <><Spinner className="border-white/30 border-t-white" /><span>Enregistrement...</span></> : "Enregistrer"}
         </button>
-        <button type="button" onClick={onSwitchToPresence}
-          className="w-full border border-[#c7b8ea] rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-white text-[#4a2b87] hover:bg-gray-50 shadow-sm hover:shadow-md">
-          Déjà inscrit ? Marquer ma présence
-        </button>
-        <p className="italic text-[#4a2b87] text-center text-xs sm:text-sm bg-[#ede7f6] p-3 rounded-lg">
-          "La maturité pour une pêche abondante en eau profonde." — Luc 5:4
-        </p>
+        <Link to="/rollcall"
+          className="w-full rounded-xl py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm border border-purple-200 bg-white text-[#4a2b87] hover:bg-purple-50 block text-center">
+          Déjà inscrit ? Marquer ma présence →
+        </Link>
       </div>
     </form>
   );
@@ -451,11 +447,10 @@ function PresenceForm({
             <label className="block mb-1.5 text-gray-700 font-medium text-sm">Statut</label>
             <div className="grid grid-cols-2 gap-1">
               {(["Présent", "Absent"] as const).map((val) => (
-                <label key={val} className={`flex items-center justify-center p-3 py-3.5 sm:py-[16.5px] rounded-lg border cursor-pointer transition-all text-xs font-medium ${
-                  presence === val
-                    ? val === "Présent" ? "border-[#2e7d32] bg-[#e8f5e9] text-[#2e7d32]" : "border-[#c62828] bg-[#ffebee] text-[#c62828]"
-                    : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
-                }`}>
+                <label key={val} className={`flex items-center justify-center p-3 py-3.5 sm:py-[16.5px] rounded-lg border cursor-pointer transition-all text-xs font-medium ${presence === val
+                  ? val === "Présent" ? "border-[#2e7d32] bg-[#e8f5e9] text-[#2e7d32]" : "border-[#c62828] bg-[#ffebee] text-[#c62828]"
+                  : "border-gray-300 hover:border-gray-400 hover:bg-gray-50"
+                  }`}>
                   <input type="radio" name="presence" value={val} checked={presence === val}
                     onChange={(e) => setPresence(e.target.value as "Présent" | "Absent")} className="sr-only" />
                   {val}
@@ -479,7 +474,7 @@ function PresenceForm({
 
       <div className="mt-4 space-y-3">
         <button type="submit" disabled={isSubmitting}
-          className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm hover:shadow-md disabled:opacity-50 flex items-center justify-center gap-2">
+          className="w-full rounded-xl py-3 px-4 font-semibold cursor-pointer transition-all duration-200 text-sm bg-[#4a2b87] text-white hover:bg-[#5a3b97] shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">
           {isSubmitting ? <><Spinner className="border-white/30 border-t-white" /><span>Enregistrement...</span></> : "Enregistrer ma présence"}
         </button>
         <button type="button" onClick={onSwitchToRegister}
@@ -532,8 +527,8 @@ function VisiteurForm({ fetcher }: { fetcher: ReturnType<typeof useFetcher> }) {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="animate-fadeIn flex flex-col h-full flex-1 justify-between pt-2">
-      <div className="flex flex-col gap-3">
+    <form onSubmit={handleSubmit} className="animate-fadeIn">
+      <div className="bg-white/80 backdrop-blur-xl rounded-3xl border border-white shadow-xl shadow-[#4a2b87]/5 p-6 space-y-4">
         <div>
           <h1 className="text-center text-gray-800 text-lg font-semibold my-1">Enregistrement visiteur</h1>
           <p className="text-center text-gray-500 text-sm mb-2">Bienvenue parmi nous ! Merci de vous enregistrer.</p>
@@ -586,15 +581,12 @@ function VisiteurForm({ fetcher }: { fetcher: ReturnType<typeof useFetcher> }) {
             placeholder="D'où venez-vous ? Qu'est-ce qui vous a amené ici ?" rows={2}
             className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none resize-none" />
         </div>
-      </div>
+      </div>{/* fin card */}
       <div className="mt-4 space-y-3">
         <button type="submit" disabled={isSubmitting}
-          className="w-full border-none rounded-lg py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm sm:text-base bg-[#4a2b87] text-white hover:bg-[#3a2070] shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">
+          className="w-full rounded-xl py-3 px-4 font-semibold cursor-pointer transition-all duration-200 text-sm bg-[#4a2b87] text-white hover:bg-[#5a3b97] shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">
           {isSubmitting ? <><Spinner className="border-white/30 border-t-white" /><span>Enregistrement...</span></> : "Enregistrer ma visite"}
         </button>
-        <p className="italic text-[#4a2b87] text-center text-xs sm:text-sm bg-[#ede7f6] p-3 rounded-lg">
-          "La maturité pour une pêche abondante en eau profonde." — Luc 5:4
-        </p>
       </div>
     </form>
   );

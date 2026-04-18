@@ -40,21 +40,25 @@ export default function MemberEditModal() {
     }
   }, [selectedMember]);
 
-  const handleSaveEdit = () => {
+  const handleSaveEdit = async () => {
     if (!selectedMember) return;
     if (!editNom.trim() || !editPrenom.trim()) {
       showToast('Le nom et le prénom sont obligatoires.', 'error');
       return;
     }
     setIsLoading(true);
-    if (onMemberSave) {
-      onMemberSave({
-        id: selectedMember.id,
-        nom: editNom.trim(),
-        prenom: editPrenom.trim(),
-        numero: editNumero.trim(),
-        categorie: editCategorie,
-      });
+    try {
+      if (onMemberSave) {
+        await onMemberSave({
+          id: selectedMember.id,
+          nom: editNom.trim(),
+          prenom: editPrenom.trim(),
+          numero: editNumero.trim(),
+          categorie: editCategorie,
+        });
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 

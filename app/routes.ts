@@ -4,7 +4,7 @@ export default [
   index("routes/home.tsx"),
   route("dashboard", "routes/dashboard.tsx"),
   route("dashboard/login", "routes/dashboard-login.tsx"),
-  
+
   // API routes
   route("api/members", "routes/api/members.ts"),
   route("api/members/:id", "routes/api/members-id.ts"),
@@ -19,5 +19,7 @@ export default [
   route("api/presence-unlock", "routes/api/presence-unlock.ts"),
   route("api/report", "routes/api/report.ts"),
   route("api/config", "routes/api/config.ts"),
+  route("api/rollcall", "routes/api/rollcall.ts"),
   route("display", "routes/display.tsx"),
+  route("rollcall", "routes/rollcall.tsx"),
 ] satisfies RouteConfig;

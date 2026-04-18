@@ -63,8 +63,6 @@ Il cherche chaque membre et le marque présent sur l'app.
 
 La séance démarre. Un ou plusieurs huissiers voient la **liste complète** des membres et cochent au fur et à mesure des arrivées.
 
-**Route à créer** : `/rollcall` (accessible avec le code de séance)
-
 - Tableau compact de tous les membres avec toggle Présent / Absent
 - Filtre par catégorie pour répartir le travail entre tablettes
 - Enregistrement en temps réel (un appel API par toggle, sans rechargement)
