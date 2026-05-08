@@ -25,6 +25,7 @@ export interface Member {
   prenom: string;
   numero: string | null;
   dateDeNaissance: string;
+  residence: string | null;
   categorie: string;
   photo: string | null;
 }
@@ -56,7 +57,8 @@ export interface Visiteur {
   culteId: number;
   date: string;
   categorie: string;
-  age: number | null;
+  dateDeNaissance: string;
+  residence: string | null;
   provenance: string | null;
 }
 
@@ -101,6 +103,7 @@ async function initTables(): Promise<void> {
       "prenom" TEXT NOT NULL,
       "numero" TEXT UNIQUE,
       "dateDeNaissance" TEXT NOT NULL,
+      "residence" TEXT,
       PRIMARY KEY("id" AUTOINCREMENT)
     );
 
@@ -143,7 +146,8 @@ async function initTables(): Promise<void> {
       "culte" INTEGER NOT NULL,
       "date" TEXT NOT NULL,
       "categorie" TEXT DEFAULT 'hommes',
-      "age" INTEGER,
+      "dateDeNaissance" TEXT,
+      "residence" TEXT,
       "provenance" TEXT,
       PRIMARY KEY("id" AUTOINCREMENT),
       FOREIGN KEY("culte") REFERENCES "culte"("id")
@@ -158,6 +162,9 @@ async function initTables(): Promise<void> {
     `ALTER TABLE membre ADD COLUMN categorie TEXT DEFAULT 'hommes'`,
     `ALTER TABLE membre ADD COLUMN photo TEXT`,
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_presence_unique ON presence(member, culte, date)`,
+    `ALTER TABLE visiteur ADD COLUMN dateDeNaissance TEXT`,
+    `ALTER TABLE membre ADD COLUMN residence TEXT`,
+    `ALTER TABLE visiteur ADD COLUMN residence TEXT`,
   ];
   for (const sql of migrations) {
     try {
@@ -220,7 +227,7 @@ async function resetTableSequence(tableName: string, nb: number = 1): Promise<vo
 export async function getAllMembers(): Promise<Member[]> {
   const database = await ensureDb();
   const result = await database.execute(
-    "SELECT id, nom, prenom, numero, dateDeNaissance, COALESCE(categorie, 'hommes') as categorie, photo FROM membre WHERE nom IS NOT NULL AND prenom IS NOT NULL"
+    "SELECT id, nom, prenom, numero, dateDeNaissance, residence, COALESCE(categorie, 'hommes') as categorie, photo FROM membre WHERE nom IS NOT NULL AND prenom IS NOT NULL"
   );
   return result.rows as unknown as Member[];
 }
@@ -230,14 +237,15 @@ export async function addMember(
   prenom: string,
   numero: string | null,
   dateDeNaissance: string,
+  residence: string | null = null,
   categorie: string = "hommes",
   photo: string | null = null
 ): Promise<number | null> {
   const database = await ensureDb();
   try {
     const result = await database.execute({
-      sql: "INSERT INTO membre (nom, prenom, numero, dateDeNaissance, categorie, photo) VALUES (?, ?, ?, ?, ?, ?)",
-      args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, categorie, photo || null],
+      sql: "INSERT INTO membre (nom, prenom, numero, dateDeNaissance, residence, categorie, photo) VALUES (?, ?, ?, ?, ?, ?, ?)",
+      args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, residence || null, categorie, photo || null],
     });
     console.log("Nouveau membre ajouté avec ID:", result.lastInsertRowid);
     return Number(result.lastInsertRowid);
@@ -253,6 +261,7 @@ export async function updateMember(
   prenom: string,
   numero: string | null,
   dateDeNaissance: string,
+  residence: string | null,
   categorie?: string,
   photo?: string | null
 ): Promise<boolean> {
@@ -260,13 +269,13 @@ export async function updateMember(
   try {
     if (categorie !== undefined) {
       await database.execute({
-        sql: "UPDATE membre SET nom = ?, prenom = ?, numero = ?, dateDeNaissance = ?, categorie = ?, photo = COALESCE(?, photo) WHERE id = ?",
-        args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, categorie, photo !== undefined ? photo : null, memberId],
+        sql: "UPDATE membre SET nom = ?, prenom = ?, numero = ?, dateDeNaissance = ?, residence = ?, categorie = ?, photo = COALESCE(?, photo) WHERE id = ?",
+        args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, residence || null, categorie, photo !== undefined ? photo : null, memberId],
       });
     } else {
       await database.execute({
-        sql: "UPDATE membre SET nom = ?, prenom = ?, numero = ?, dateDeNaissance = ? WHERE id = ?",
-        args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, memberId],
+        sql: "UPDATE membre SET nom = ?, prenom = ?, numero = ?, dateDeNaissance = ?, residence = ? WHERE id = ?",
+        args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, residence || null, memberId],
       });
     }
     return true;
@@ -447,7 +456,8 @@ export async function getAllVisiteurs(): Promise<Visiteur[]> {
       v.culte as culteId,
       v.date,
       COALESCE(v.categorie, 'hommes') as categorie,
-      v.age,
+      v.dateDeNaissance,
+      v.residence,
       v.provenance
     FROM visiteur v
     ORDER BY v.date DESC, v.nom, v.prenom
@@ -462,7 +472,8 @@ export async function getAllVisiteurs(): Promise<Visiteur[]> {
     culte: row.culteId === 1 ? "1er culte" : row.culteId === 2 ? "2ème culte" : `Culte ${row.culteId}`,
     date: row.date || "",
     categorie: row.categorie || "hommes",
-    age: row.age || null,
+    dateDeNaissance: row.dateDeNaissance || "",
+    residence: row.residence || null,
     provenance: row.provenance || null,
   }));
 }
@@ -474,14 +485,15 @@ export async function addVisiteur(
   culteId: number,
   date: string,
   categorie: string,
-  age: number | null,
+  dateDeNaissance: string,
+  residence: string | null,
   provenance: string | null
 ): Promise<number | null> {
   const database = await ensureDb();
   try {
     const result = await database.execute({
-      sql: "INSERT INTO visiteur (nom, prenom, telephone, culte, date, categorie, age, provenance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-      args: [nom.trim(), prenom.trim(), telephone || null, culteId, date, categorie, age, provenance || null],
+      sql: "INSERT INTO visiteur (nom, prenom, telephone, culte, date, categorie, dateDeNaissance, residence, provenance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      args: [nom.trim(), prenom.trim(), telephone || null, culteId, date, categorie, dateDeNaissance, residence || null, provenance || null],
     });
     return Number(result.lastInsertRowid);
   } catch (e) {
@@ -497,14 +509,15 @@ export async function updateVisiteur(
   telephone: string | null,
   culteId: number,
   categorie: string,
-  age: number | null,
+  dateDeNaissance: string,
+  residence: string | null,
   provenance: string | null
 ): Promise<boolean> {
   const database = await ensureDb();
   try {
     await database.execute({
-      sql: "UPDATE visiteur SET nom = ?, prenom = ?, telephone = ?, culte = ?, categorie = ?, age = ?, provenance = ? WHERE id = ?",
-      args: [nom.trim(), prenom.trim(), telephone || null, culteId, categorie, age, provenance || null, visiteurId],
+      sql: "UPDATE visiteur SET nom = ?, prenom = ?, telephone = ?, culte = ?, categorie = ?, dateDeNaissance = ?, residence = ?, provenance = ? WHERE id = ?",
+      args: [nom.trim(), prenom.trim(), telephone || null, culteId, categorie, dateDeNaissance, residence || null, provenance || null, visiteurId],
     });
     return true;
   } catch (e) {

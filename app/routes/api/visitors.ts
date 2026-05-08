@@ -16,8 +16,8 @@ export async function action({ request }: Route.ActionArgs) {
   const culteId = parseInt(formData.get("culteId") as string) || 1;
   const date = formData.get("date") as string;
   const categorie = (formData.get("categorie") as string) || "hommes";
-  const ageRaw = formData.get("age") as string | null;
-  const age = ageRaw ? parseInt(ageRaw) : null;
+  const dateDeNaissance = (formData.get("dateDeNaissance") as string) || "";
+  const residence = (formData.get("residence") as string) || null;
   const provenance = formData.get("provenance") as string | null;
 
   if (!nom || !prenom) {
@@ -34,7 +34,8 @@ export async function action({ request }: Route.ActionArgs) {
     culteId,
     date || new Date().toLocaleDateString(),
     categorie,
-    age && !isNaN(age) ? age : null,
+    dateDeNaissance,
+    residence,
     provenance || null
   );
 

@@ -28,7 +28,8 @@ export default function VisitorEditModal() {
   const [editTelephone, setEditTelephone] = useState('');
   const [editCulteId, setEditCulteId] = useState(1);
   const [editCategorie, setEditCategorie] = useState('hommes');
-  const [editAge, setEditAge] = useState('');
+  const [editDateDeNaissance, setEditDateDeNaissance] = useState('');
+  const [editResidence, setEditResidence] = useState('');
   const [editProvenance, setEditProvenance] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { showToast } = useToast();
@@ -40,7 +41,8 @@ export default function VisitorEditModal() {
       setEditTelephone(selectedVisitor.telephone || '');
       setEditCulteId(selectedVisitor.culteId || 1);
       setEditCategorie(selectedVisitor.categorie || 'hommes');
-      setEditAge(selectedVisitor.age != null ? String(selectedVisitor.age) : '');
+      setEditDateDeNaissance(selectedVisitor.dateDeNaissance || '');
+      setEditResidence(selectedVisitor.residence || '');
       setEditProvenance(selectedVisitor.provenance || '');
       setIsLoading(false);
     }
@@ -62,7 +64,8 @@ export default function VisitorEditModal() {
           telephone: editTelephone.trim(),
           culteId: editCulteId,
           categorie: editCategorie,
-          age: editAge ? parseInt(editAge) : null,
+          dateDeNaissance: editDateDeNaissance,
+          residence: editResidence.trim(),
           provenance: editProvenance.trim(),
         });
       }
@@ -104,12 +107,15 @@ export default function VisitorEditModal() {
 
           <div className="grid grid-cols-2 gap-3">
             <Input label="Téléphone" type="tel" value={editTelephone} onChange={(e) => setEditTelephone(e.target.value)} disabled={isLoading} />
-            <Input label="Âge" type="number" value={editAge} onChange={(e) => setEditAge(e.target.value)} disabled={isLoading} />
+            <Input label="Date de naissance" type="date" value={editDateDeNaissance} onChange={(e) => setEditDateDeNaissance(e.target.value)} disabled={isLoading} />
           </div>
 
-          <Select label="Catégorie" value={editCategorie} onChange={(e) => setEditCategorie(e.target.value)} disabled={isLoading}>
-            {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </Select>
+          <div className="grid grid-cols-2 gap-3">
+            <Select label="Catégorie" value={editCategorie} onChange={(e) => setEditCategorie(e.target.value)} disabled={isLoading}>
+              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </Select>
+            <Input label="Lieu de résidence" type="text" value={editResidence} onChange={(e) => setEditResidence(e.target.value)} disabled={isLoading} />
+          </div>
 
           <Select label="Culte" value={String(editCulteId)} onChange={(e) => setEditCulteId(parseInt(e.target.value))} disabled={isLoading}>
             <option value="1">1er culte</option>

@@ -28,6 +28,7 @@ export async function action({ request, params }: Route.ActionArgs) {
     const prenom = formData.get("prenom") as string;
     const numero = formData.get("numero") as string | null;
     const dateDeNaissance = (formData.get("dateDeNaissance") as string) || "";
+    const residence = (formData.get("residence") as string) || null;
     const categorie = formData.get("categorie") as string | null;
     const photo = formData.get("photo") as string | null;
 
@@ -44,6 +45,7 @@ export async function action({ request, params }: Route.ActionArgs) {
       prenom,
       numero,
       dateDeNaissance,
+      residence,
       categorie || undefined,
       photo !== null ? photo : undefined
     );

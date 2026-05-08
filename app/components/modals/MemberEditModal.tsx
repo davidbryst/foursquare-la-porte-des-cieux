@@ -26,6 +26,8 @@ export default function MemberEditModal() {
   const [editNom, setEditNom] = useState(selectedMember?.nom || '');
   const [editPrenom, setEditPrenom] = useState(selectedMember?.prenom || '');
   const [editNumero, setEditNumero] = useState(selectedMember?.numero || '');
+  const [editDateDeNaissance, setEditDateDeNaissance] = useState(selectedMember?.dateDeNaissance || '');
+  const [editResidence, setEditResidence] = useState(selectedMember?.residence || '');
   const [editCategorie, setEditCategorie] = useState(selectedMember?.categorie || 'hommes');
   const [isLoading, setIsLoading] = useState(false);
   const { showToast } = useToast();
@@ -35,6 +37,8 @@ export default function MemberEditModal() {
       setEditNom(selectedMember.nom || '');
       setEditPrenom(selectedMember.prenom || '');
       setEditNumero(selectedMember.numero || '');
+      setEditDateDeNaissance(selectedMember.dateDeNaissance || '');
+      setEditResidence(selectedMember.residence || '');
       setEditCategorie(selectedMember.categorie || 'hommes');
       setIsLoading(false);
     }
@@ -54,6 +58,8 @@ export default function MemberEditModal() {
           nom: editNom.trim(),
           prenom: editPrenom.trim(),
           numero: editNumero.trim(),
+          dateDeNaissance: editDateDeNaissance,
+          residence: editResidence.trim(),
           categorie: editCategorie,
         });
       }
@@ -121,6 +127,22 @@ export default function MemberEditModal() {
             type="text"
             value={editNumero}
             onChange={(e) => setEditNumero(e.target.value)}
+            className="mb-3"
+            disabled={isLoading}
+          />
+          <Input
+            label="Date de naissance"
+            type="date"
+            value={editDateDeNaissance}
+            onChange={(e) => setEditDateDeNaissance(e.target.value)}
+            className="mb-3"
+            disabled={isLoading}
+          />
+          <Input
+            label="Lieu de résidence"
+            type="text"
+            value={editResidence}
+            onChange={(e) => setEditResidence(e.target.value)}
             className="mb-3"
             disabled={isLoading}
           />

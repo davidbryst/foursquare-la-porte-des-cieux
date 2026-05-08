@@ -261,6 +261,8 @@ function MemberTable({ members }: { members: Member[] }) {
       fd.append("nom", payload.nom);
       fd.append("prenom", payload.prenom);
       fd.append("numero", payload.numero || "");
+      fd.append("dateDeNaissance", payload.dateDeNaissance || "");
+      fd.append("residence", payload.residence || "");
       fd.append("categorie", payload.categorie || "hommes");
       if ((payload as any).photo) fd.append("photo", (payload as any).photo);
       const res = await fetch(`/api/members/${payload.id}`, { method: "PUT", body: fd });
@@ -277,16 +279,17 @@ function MemberTable({ members }: { members: Member[] }) {
   };
 
   const handleDownloadExcel = async () => {
-    const headers = ["Nom", "Prénom", "Téléphone", "Catégorie", "Date d'Inscription"];
+    const headers = ["Nom", "Prénom", "Téléphone", "Catégorie", "Date d'Inscription", "Lieu de résidence"];
     const rows = filtered.map((m) => [
       m.nom,
       m.prenom,
       m.numero || "",
       CATEGORY_LABELS[m.categorie || "hommes"] || m.categorie || "Hommes",
       m.dateDeNaissance || "", // Utilisé comme date d'inscription dans le modèle actuel apparemment
+      m.residence || "",
     ]);
     const filename = `membres_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.xlsx`;
-    const widths = [25, 25, 22, 20, 25];
+    const widths = [25, 25, 22, 20, 25, 25];
 
     try {
       const res = await fetch("/api/report", {
@@ -343,13 +346,14 @@ function MemberTable({ members }: { members: Member[] }) {
               <th className="px-4 py-3 text-left font-semibold">Prénom</th>
               <th className="px-4 py-3 text-left font-semibold">Catégorie</th>
               <th className="px-4 py-3 text-left font-semibold">Téléphone</th>
+              <th className="px-4 py-3 text-left font-semibold">Résidence</th>
               <th className="px-4 py-3 text-center font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center py-8 text-gray-400">
+                <td colSpan={7} className="text-center py-8 text-gray-400">
                   Aucun membre trouvé
                 </td>
               </tr>
@@ -377,6 +381,7 @@ function MemberTable({ members }: { members: Member[] }) {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-gray-600">{m.numero || "—"}</td>
+                  <td className="px-4 py-3 text-gray-600 max-w-[120px] truncate">{m.residence || "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-2">
                       <button
@@ -453,7 +458,8 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
       fd.append("telephone", payload.telephone || "");
       fd.append("culteId", String(payload.culteId));
       fd.append("categorie", payload.categorie);
-      fd.append("age", payload.age !== undefined && payload.age !== null ? String(payload.age) : "");
+      fd.append("dateDeNaissance", payload.dateDeNaissance || "");
+      fd.append("residence", payload.residence || "");
       fd.append("provenance", payload.provenance || "");
       const res = await fetch(`/api/visitors/${payload.id}`, { method: "PUT", body: fd });
       const data = await res.json();
@@ -469,13 +475,13 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
   };
 
   const handleDownloadExcel = async () => {
-    const headers = ["Nom", "Prénom", "Téléphone", "Catégorie", "Âge", "Culte", "Date", "Provenance"];
+    const headers = ["Nom", "Prénom", "Téléphone", "Catégorie", "Date de naissance", "Lieu de résidence", "Culte", "Date", "Provenance"];
     const rows = filtered.map((v) => [
       v.nom, v.prenom, v.telephone || "", CATEGORY_LABELS[v.categorie] || v.categorie,
-      v.age ?? "", v.culte, v.date, v.provenance || "",
+      v.dateDeNaissance || "", v.residence || "", v.culte, v.date, v.provenance || "",
     ]);
     const filename = `visiteurs_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.xlsx`;
-    const widths = [25, 25, 22, 20, 10, 20, 20, 40];
+    const widths = [25, 25, 22, 20, 15, 25, 20, 20, 40];
 
     try {
       const res = await fetch("/api/report", {
@@ -531,7 +537,8 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
               <th className="px-4 py-3 text-left font-semibold">Prénom</th>
               <th className="px-4 py-3 text-left font-semibold">Téléphone</th>
               <th className="px-4 py-3 text-left font-semibold">Catégorie</th>
-              <th className="px-4 py-3 text-left font-semibold">Âge</th>
+              <th className="px-4 py-3 text-left font-semibold">Date de naissance</th>
+              <th className="px-4 py-3 text-left font-semibold">Résidence</th>
               <th className="px-4 py-3 text-left font-semibold">Culte</th>
               <th className="px-4 py-3 text-left font-semibold">Date</th>
               <th className="px-4 py-3 text-left font-semibold">Provenance</th>
@@ -541,7 +548,7 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
           <tbody>
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={9} className="text-center py-8 text-gray-400">
+                <td colSpan={10} className="text-center py-8 text-gray-400">
                   Aucun visiteur trouvé
                 </td>
               </tr>
@@ -556,7 +563,8 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
                       {CATEGORY_LABELS[v.categorie] || v.categorie}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-gray-600">{v.age ?? "—"}</td>
+                  <td className="px-4 py-3 text-gray-600">{v.dateDeNaissance || "—"}</td>
+                  <td className="px-4 py-3 text-gray-600 max-w-[120px] truncate">{v.residence || "—"}</td>
                   <td className="px-4 py-3 text-gray-600">{v.culte}</td>
                   <td className="px-4 py-3 text-gray-600">{v.date}</td>
                   <td className="px-4 py-3 text-gray-600 max-w-[120px] truncate">{v.provenance || "—"}</td>

@@ -6,6 +6,8 @@ type MemberSavePayload = {
   nom: string;
   prenom: string;
   numero: string;
+  dateDeNaissance: string;
+  residence: string;
   categorie: string;
 };
 
@@ -23,7 +25,8 @@ type VisitorSavePayload = {
   telephone: string;
   culteId: number;
   categorie: string;
-  age: number | null;
+  dateDeNaissance: string;
+  residence: string;
   provenance: string;
 };
 

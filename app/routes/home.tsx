@@ -178,6 +178,8 @@ function MemberForm({
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
   const [phone, setPhone] = useState("");
+  const [dateDeNaissance, setDateDeNaissance] = useState("");
+  const [residence, setResidence] = useState("");
   const [categorie, setCategorie] = useState("hommes");
   const [photo, setPhoto] = useState<string | null>(null);
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
@@ -215,11 +217,12 @@ function MemberForm({
     if (!phone.trim()) { showToast("Veuillez remplir le numéro de téléphone.", "error"); return; }
     const formData = new FormData();
     formData.append("nom", nom.trim()); formData.append("prenom", prenom.trim());
-    formData.append("numero", phone.trim()); formData.append("dateDeNaissance", "");
+    formData.append("numero", phone.trim()); formData.append("dateDeNaissance", dateDeNaissance);
+    formData.append("residence", residence.trim());
     formData.append("categorie", categorie);
     if (photo) formData.append("photo", photo);
     fetcher.submit(formData, { method: "post", action: "/api/members" });
-    setNom(""); setPrenom(""); setPhone(""); setPhoto(null); setPhotoPreview(null);
+    setNom(""); setPrenom(""); setPhone(""); setDateDeNaissance(""); setResidence(""); setPhoto(null); setPhotoPreview(null);
   };
 
   return (
@@ -254,27 +257,45 @@ function MemberForm({
         </div>
 
         <div className="space-y-3">
-          <div>
-            <label className="block mb-1.5 text-gray-700 font-medium text-sm">Nom</label>
-            <input type="text" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Votre nom de famille"
-              className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block mb-1.5 text-gray-700 font-medium text-sm">Nom</label>
+              <input type="text" value={nom} onChange={(e) => setNom(e.target.value)} placeholder="Votre nom de famille"
+                className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block mb-1.5 text-gray-700 font-medium text-sm">Prénom</label>
+              <input type="text" value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Votre prénom"
+                className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
+            </div>
           </div>
-          <div>
-            <label className="block mb-1.5 text-gray-700 font-medium text-sm">Prénom</label>
-            <input type="text" value={prenom} onChange={(e) => setPrenom(e.target.value)} placeholder="Votre prénom"
-              className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block mb-1.5 text-gray-700 font-medium text-sm">Numéro de téléphone</label>
+              <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Ex: 07 07 90 46 56"
+                className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block mb-1.5 text-gray-700 font-medium text-sm">Catégorie</label>
+              <select value={categorie} onChange={(e) => setCategorie(e.target.value)}
+                className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none">
+                {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
           </div>
-          <div>
-            <label className="block mb-1.5 text-gray-700 font-medium text-sm">Numéro de téléphone</label>
-            <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Ex: 07 07 90 46 56"
-              className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
-          </div>
-          <div>
-            <label className="block mb-1.5 text-gray-700 font-medium text-sm">Catégorie</label>
-            <select value={categorie} onChange={(e) => setCategorie(e.target.value)}
-              className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none">
-              {CATEGORIES.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-            </select>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block mb-1.5 text-gray-700 font-medium text-sm">Date de naissance</label>
+              <input type="date" value={dateDeNaissance} onChange={(e) => setDateDeNaissance(e.target.value)}
+                className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block mb-1.5 text-gray-700 font-medium text-sm">Lieu de résidence</label>
+              <input type="text" value={residence} onChange={(e) => setResidence(e.target.value)} placeholder="Votre quartier..."
+                className="w-full p-3 sm:p-3.5 rounded-lg border border-gray-300 bg-white text-sm transition-all duration-200 focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
+            </div>
           </div>
         </div>
       </div>{/* fin card */}
@@ -495,7 +516,8 @@ function VisiteurForm({ fetcher }: { fetcher: ReturnType<typeof useFetcher> }) {
   const [nom, setNom] = useState("");
   const [prenom, setPrenom] = useState("");
   const [telephone, setTelephone] = useState("");
-  const [age, setAge] = useState("");
+  const [dateDeNaissance, setDateDeNaissance] = useState("");
+  const [residence, setResidence] = useState("");
   const [categorie, setCategorie] = useState("hommes");
   const [culte, setCulte] = useState("");
   const [provenance, setProvenance] = useState("");
@@ -505,7 +527,7 @@ function VisiteurForm({ fetcher }: { fetcher: ReturnType<typeof useFetcher> }) {
   useEffect(() => {
     const data = fetcher.data as any;
     if (data?.success) {
-      setNom(""); setPrenom(""); setTelephone(""); setAge("");
+      setNom(""); setPrenom(""); setTelephone(""); setDateDeNaissance(""); setResidence("");
       setCategorie("hommes"); setCulte(""); setProvenance("");
     }
   }, [fetcher.data]);
@@ -522,7 +544,8 @@ function VisiteurForm({ fetcher }: { fetcher: ReturnType<typeof useFetcher> }) {
     fd.append("culteId", culteId.toString());
     fd.append("date", new Date().toISOString().split("T")[0]);
     fd.append("categorie", categorie);
-    if (age) fd.append("age", age);
+    if (dateDeNaissance) fd.append("dateDeNaissance", dateDeNaissance);
+    if (residence) fd.append("residence", residence.trim());
     fd.append("provenance", provenance.trim());
     fetcher.submit(fd, { method: "post", action: "/api/visitors" });
   };
@@ -553,8 +576,8 @@ function VisiteurForm({ fetcher }: { fetcher: ReturnType<typeof useFetcher> }) {
               className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
           </div>
           <div>
-            <label className="block mb-1.5 text-gray-700 font-medium text-sm">Âge</label>
-            <input type="number" value={age} onChange={(e) => setAge(e.target.value)} placeholder="Ex: 25" min={1} max={120}
+            <label className="block mb-1.5 text-gray-700 font-medium text-sm">Date de naissance</label>
+            <input type="date" value={dateDeNaissance} onChange={(e) => setDateDeNaissance(e.target.value)}
               className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
           </div>
         </div>
@@ -575,6 +598,11 @@ function VisiteurForm({ fetcher }: { fetcher: ReturnType<typeof useFetcher> }) {
               <option value="2ème culte">2ème culte</option>
             </select>
           </div>
+        </div>
+        <div>
+          <label className="block mb-1.5 text-gray-700 font-medium text-sm">Lieu de résidence</label>
+          <input type="text" value={residence} onChange={(e) => setResidence(e.target.value)} placeholder="Votre quartier..."
+            className="w-full p-3 rounded-lg border border-gray-300 bg-white text-sm focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none" />
         </div>
         <div>
           <label className="block mb-1.5 text-gray-700 font-medium text-sm">Provenance / Motif de visite</label>

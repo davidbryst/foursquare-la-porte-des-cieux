@@ -29,8 +29,8 @@ export async function action({ request, params }: Route.ActionArgs) {
     const telephone = formData.get("telephone") as string | null;
     const culteId = parseInt(formData.get("culteId") as string) || 1;
     const categorie = (formData.get("categorie") as string) || "hommes";
-    const ageRaw = formData.get("age") as string | null;
-    const age = ageRaw ? parseInt(ageRaw) : null;
+    const dateDeNaissance = (formData.get("dateDeNaissance") as string) || "";
+    const residence = (formData.get("residence") as string) || null;
     const provenance = formData.get("provenance") as string | null;
 
     if (!nom || !prenom) {
@@ -47,7 +47,8 @@ export async function action({ request, params }: Route.ActionArgs) {
       telephone || null,
       culteId,
       categorie,
-      age && !isNaN(age) ? age : null,
+      dateDeNaissance,
+      residence,
       provenance || null
     );
     if (success) {
