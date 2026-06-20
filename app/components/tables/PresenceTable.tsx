@@ -43,7 +43,7 @@ export default function PresenceTable({ entries, onDownloadCSV, onEdit, onDelete
 
   const handleSaveEdit = () => {
     if (!editingPresence || !onEdit) return
-    const culteId = editCulte === "1er culte" ? 1 : editCulte === "2ème culte" ? 2 : 1
+    const culteId = editCulte === "1er culte" ? 1 : editCulte === "2ème culte" ? 2 : editCulte === "Autre" ? 3 : 1
     onEdit(editingPresence.id, editPresenceStatus === 'Présent', culteId)
     setEditingPresence(null)
   }
@@ -162,6 +162,7 @@ export default function PresenceTable({ entries, onDownloadCSV, onEdit, onDelete
             >
               <option value="1er culte">1er culte</option>
               <option value="2ème culte">2ème culte</option>
+              <option value="Autre">Autre</option>
             </Select>
             
             <div className="flex gap-3">

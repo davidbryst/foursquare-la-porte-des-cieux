@@ -28,7 +28,6 @@ export default function VisitorEditModal() {
   const [editTelephone, setEditTelephone] = useState('');
   const [editCulteId, setEditCulteId] = useState(1);
   const [editCategorie, setEditCategorie] = useState('hommes');
-  const [editDateDeNaissance, setEditDateDeNaissance] = useState('');
   const [editResidence, setEditResidence] = useState('');
   const [editProvenance, setEditProvenance] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -41,7 +40,6 @@ export default function VisitorEditModal() {
       setEditTelephone(selectedVisitor.telephone || '');
       setEditCulteId(selectedVisitor.culteId || 1);
       setEditCategorie(selectedVisitor.categorie || 'hommes');
-      setEditDateDeNaissance(selectedVisitor.dateDeNaissance || '');
       setEditResidence(selectedVisitor.residence || '');
       setEditProvenance(selectedVisitor.provenance || '');
       setIsLoading(false);
@@ -64,7 +62,6 @@ export default function VisitorEditModal() {
           telephone: editTelephone.trim(),
           culteId: editCulteId,
           categorie: editCategorie,
-          dateDeNaissance: editDateDeNaissance,
           residence: editResidence.trim(),
           provenance: editProvenance.trim(),
         });
@@ -105,10 +102,7 @@ export default function VisitorEditModal() {
             <Input label="Prénom" type="text" value={editPrenom} onChange={(e) => setEditPrenom(e.target.value)} disabled={isLoading} />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Input label="Téléphone" type="tel" value={editTelephone} onChange={(e) => setEditTelephone(e.target.value)} disabled={isLoading} />
-            <Input label="Date de naissance" type="date" value={editDateDeNaissance} onChange={(e) => setEditDateDeNaissance(e.target.value)} disabled={isLoading} />
-          </div>
+          <Input label="Téléphone" type="tel" value={editTelephone} onChange={(e) => setEditTelephone(e.target.value)} disabled={isLoading} />
 
           <div className="grid grid-cols-2 gap-3">
             <Select label="Catégorie" value={editCategorie} onChange={(e) => setEditCategorie(e.target.value)} disabled={isLoading}>

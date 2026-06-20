@@ -321,7 +321,7 @@ export default function RollCallPage({ loaderData }: Route.ComponentProps) {
                             >
                                 <option value={1}>1er culte</option>
                                 <option value={2}>2ème culte</option>
-                                <option value={3}>3ème culte</option>
+                                <option value={3}>Autre</option>
                             </select>
                         </div>
                     </div>

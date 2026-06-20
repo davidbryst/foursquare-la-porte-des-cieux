@@ -29,7 +29,6 @@ export async function action({ request, params }: Route.ActionArgs) {
     const telephone = formData.get("telephone") as string | null;
     const culteId = parseInt(formData.get("culteId") as string) || 1;
     const categorie = (formData.get("categorie") as string) || "hommes";
-    const dateDeNaissance = (formData.get("dateDeNaissance") as string) || "";
     const residence = (formData.get("residence") as string) || null;
     const provenance = formData.get("provenance") as string | null;
 
@@ -47,7 +46,6 @@ export async function action({ request, params }: Route.ActionArgs) {
       telephone || null,
       culteId,
       categorie,
-      dateDeNaissance,
       residence,
       provenance || null
     );

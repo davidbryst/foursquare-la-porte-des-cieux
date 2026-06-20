@@ -160,6 +160,7 @@ export default function PresenceEditModal() {
             >
               <option value="1er culte">1er culte</option>
               <option value="2ème culte">2ème culte</option>
+              <option value="Autre">Autre</option>
             </Select>
           </div>
 

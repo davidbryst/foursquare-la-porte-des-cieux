@@ -26,9 +26,9 @@ export default function MemberEditModal() {
   const [editNom, setEditNom] = useState(selectedMember?.nom || '');
   const [editPrenom, setEditPrenom] = useState(selectedMember?.prenom || '');
   const [editNumero, setEditNumero] = useState(selectedMember?.numero || '');
-  const [editDateDeNaissance, setEditDateDeNaissance] = useState(selectedMember?.dateDeNaissance || '');
   const [editResidence, setEditResidence] = useState(selectedMember?.residence || '');
   const [editCategorie, setEditCategorie] = useState(selectedMember?.categorie || 'hommes');
+  const [removePhoto, setRemovePhoto] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { showToast } = useToast();
 
@@ -37,9 +37,9 @@ export default function MemberEditModal() {
       setEditNom(selectedMember.nom || '');
       setEditPrenom(selectedMember.prenom || '');
       setEditNumero(selectedMember.numero || '');
-      setEditDateDeNaissance(selectedMember.dateDeNaissance || '');
       setEditResidence(selectedMember.residence || '');
       setEditCategorie(selectedMember.categorie || 'hommes');
+      setRemovePhoto(false);
       setIsLoading(false);
     }
   }, [selectedMember]);
@@ -58,9 +58,10 @@ export default function MemberEditModal() {
           nom: editNom.trim(),
           prenom: editPrenom.trim(),
           numero: editNumero.trim(),
-          dateDeNaissance: editDateDeNaissance,
           residence: editResidence.trim(),
           categorie: editCategorie,
+          // '' = effacer la photo, undefined = la conserver
+          photo: removePhoto ? '' : undefined,
         });
       }
     } finally {
@@ -97,12 +98,38 @@ export default function MemberEditModal() {
         <div className="space-y-3 text-sm">
           {/* Photo actuelle */}
           {selectedMember?.photo && (
-            <div className="flex justify-center mb-2">
-              <img
-                src={selectedMember.photo}
-                alt="Photo du membre"
-                className="w-20 h-20 rounded-full object-cover border-4 border-[#ede7f6] shadow"
-              />
+            <div className="flex flex-col items-center gap-2 mb-2">
+              {removePhoto ? (
+                <>
+                  <div className="w-20 h-20 rounded-full border-4 border-dashed border-red-200 bg-red-50 flex items-center justify-center text-red-400 text-xs text-center px-2">
+                    Photo retirée
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setRemovePhoto(false)}
+                    disabled={isLoading}
+                    className="text-xs text-[#4a2b87] hover:underline disabled:opacity-50"
+                  >
+                    Annuler le retrait
+                  </button>
+                </>
+              ) : (
+                <>
+                  <img
+                    src={selectedMember.photo}
+                    alt="Photo du membre"
+                    className="w-20 h-20 rounded-full object-cover border-4 border-[#ede7f6] shadow"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setRemovePhoto(true)}
+                    disabled={isLoading}
+                    className="text-xs text-red-500 hover:underline disabled:opacity-50"
+                  >
+                    Retirer la photo
+                  </button>
+                </>
+              )}
             </div>
           )}
 
@@ -127,14 +154,6 @@ export default function MemberEditModal() {
             type="text"
             value={editNumero}
             onChange={(e) => setEditNumero(e.target.value)}
-            className="mb-3"
-            disabled={isLoading}
-          />
-          <Input
-            label="Date de naissance"
-            type="date"
-            value={editDateDeNaissance}
-            onChange={(e) => setEditDateDeNaissance(e.target.value)}
             className="mb-3"
             disabled={isLoading}
           />

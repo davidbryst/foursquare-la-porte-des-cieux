@@ -230,16 +230,15 @@ export async function loader({ request }: Route.LoaderArgs) {
     { key: "prenom", width: 25 },
     { key: "telephone", width: 22 },
     { key: "categorie", width: 18 },
-    { key: "dateDeNaissance", width: 18 },
     { key: "residence", width: 25 },
     { key: "culte", width: 20 },
     { key: "date", width: 18 },
     { key: "provenance", width: 40 },
   ];
 
-  wsVisiteurs.addRow(["LISTE DES VISITEURS", "", "", "", "", "", "", "", ""]).font = { bold: true, size: 14 };
+  wsVisiteurs.addRow(["LISTE DES VISITEURS", "", "", "", "", "", "", ""]).font = { bold: true, size: 14 };
   wsVisiteurs.addRow([]);
-  headerRow(wsVisiteurs, ["Nom", "Prénom", "Téléphone", "Catégorie", "Date de naissance", "Lieu de résidence", "Culte", "Date", "Provenance / Motif"]);
+  headerRow(wsVisiteurs, ["Nom", "Prénom", "Téléphone", "Catégorie", "Lieu de résidence", "Culte", "Date d'enregistrement", "Provenance / Motif"]);
 
   for (const v of visiteurs) {
     wsVisiteurs.addRow([
@@ -247,7 +246,6 @@ export async function loader({ request }: Route.LoaderArgs) {
       v.prenom,
       v.telephone || "",
       v.categorie,
-      v.dateDeNaissance || "",
       v.residence || "",
       v.culte,
       v.date,
@@ -263,13 +261,13 @@ export async function loader({ request }: Route.LoaderArgs) {
     { key: "prenom", width: 25 },
     { key: "numero", width: 22 },
     { key: "categorie", width: 18 },
-    { key: "dateDeNaissance", width: 22 },
+    { key: "dateEnregistrement", width: 22 },
     { key: "residence", width: 25 },
   ];
 
   wsMembres.addRow(["LISTE COMPLÈTE DES MEMBRES", "", "", "", "", ""]).font = { bold: true, size: 14 };
   wsMembres.addRow([]);
-  headerRow(wsMembres, ["Nom", "Prénom", "Téléphone", "Catégorie", "Date de naissance", "Lieu de résidence"]);
+  headerRow(wsMembres, ["Nom", "Prénom", "Téléphone", "Catégorie", "Date d'enregistrement", "Lieu de résidence"]);
 
   for (const m of members) {
     wsMembres.addRow([
@@ -277,7 +275,7 @@ export async function loader({ request }: Route.LoaderArgs) {
       m.prenom,
       m.numero || "",
       m.categorie || "hommes",
-      m.dateDeNaissance || "",
+      m.dateEnregistrement || "",
       m.residence || "",
     ]);
   }

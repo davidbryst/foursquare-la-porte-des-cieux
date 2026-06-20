@@ -6,9 +6,10 @@ type MemberSavePayload = {
   nom: string;
   prenom: string;
   numero: string;
-  dateDeNaissance: string;
   residence: string;
   categorie: string;
+  // undefined = ne pas toucher la photo ; '' = effacer la photo existante
+  photo?: string;
 };
 
 type PresenceSavePayload = {
@@ -25,7 +26,6 @@ type VisitorSavePayload = {
   telephone: string;
   culteId: number;
   categorie: string;
-  dateDeNaissance: string;
   residence: string;
   provenance: string;
 };

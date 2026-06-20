@@ -1,5 +1,15 @@
 import { createCookieSessionStorage, redirect } from "react-router";
 
+// Le secret signe les cookies de session. S'il est connu/par défaut, n'importe qui
+// peut forger un cookie admin. On l'exige donc en production et on n'autorise le
+// secret de repli qu'en développement.
+const sessionSecret = process.env.SESSION_SECRET;
+if (!sessionSecret && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "SESSION_SECRET doit être défini en production (cookies de session non sécurisés sans lui)."
+  );
+}
+
 // Configuration du session storage
 const sessionStorage = createCookieSessionStorage({
   cookie: {
@@ -8,7 +18,7 @@ const sessionStorage = createCookieSessionStorage({
     maxAge: 60 * 60 * 24 * 7, // 7 jours
     path: "/",
     sameSite: "lax",
-    secrets: [process.env.SESSION_SECRET || "presence-culte-dev-secret-change-in-prod"],
+    secrets: [sessionSecret || "presence-culte-dev-secret-change-in-prod"],
     secure: process.env.NODE_ENV === "production",
   },
 });

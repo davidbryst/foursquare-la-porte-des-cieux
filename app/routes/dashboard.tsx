@@ -261,10 +261,10 @@ function MemberTable({ members }: { members: Member[] }) {
       fd.append("nom", payload.nom);
       fd.append("prenom", payload.prenom);
       fd.append("numero", payload.numero || "");
-      fd.append("dateDeNaissance", payload.dateDeNaissance || "");
       fd.append("residence", payload.residence || "");
       fd.append("categorie", payload.categorie || "hommes");
-      if ((payload as any).photo) fd.append("photo", (payload as any).photo);
+      // photo === '' => effacer ; undefined => ne pas modifier (on n'envoie rien)
+      if (payload.photo !== undefined) fd.append("photo", payload.photo);
       const res = await fetch(`/api/members/${payload.id}`, { method: "PUT", body: fd });
       const data = await res.json();
       if (data.success) {
@@ -285,7 +285,7 @@ function MemberTable({ members }: { members: Member[] }) {
       m.prenom,
       m.numero || "",
       CATEGORY_LABELS[m.categorie || "hommes"] || m.categorie || "Hommes",
-      m.dateDeNaissance || "", // Utilisé comme date d'inscription dans le modèle actuel apparemment
+      m.dateEnregistrement || "",
       m.residence || "",
     ]);
     const filename = `membres_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.xlsx`;
@@ -416,7 +416,7 @@ function MemberTable({ members }: { members: Member[] }) {
 function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
   const [catFilter, setCatFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const fetcher = useFetcher();
+  const [busyKey, setBusyKey] = useState<string | null>(null);
   const { showToast } = useToast();
   const { openVisitorModal, closeVisitorModal, setVisitorSaveHandler } = useModal();
   const revalidator = useRevalidator();
@@ -432,23 +432,79 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
     return matchCat && matchSearch;
   });
 
-  const handleDelete = (id: number, name: string) => {
-    if (!confirm(`Supprimer le visiteur "${name}" ?`)) return;
-    const fd = new FormData();
-    fd.append("id", String(id));
-    fetcher.submit(fd, { method: "delete", action: `/api/visitors/${id}` });
+  // #4 — Regrouper les visites par personne (nom + prénom) pour voir la fréquence
+  type VisitorGroup = { key: string; rep: Visiteur; visites: number; ids: number[] };
+  const groupsMap = new Map<string, Visiteur[]>();
+  for (const v of filtered) {
+    const k = `${v.nom.trim().toLowerCase()}|${v.prenom.trim().toLowerCase()}`;
+    const arr = groupsMap.get(k) || [];
+    arr.push(v);
+    groupsMap.set(k, arr);
+  }
+  const groups: VisitorGroup[] = Array.from(groupsMap.entries()).map(([k, rows]) => {
+    const rep = [...rows].sort((a, b) => (b.date || "").localeCompare(a.date || ""))[0];
+    return { key: k, rep, visites: rows.length, ids: rows.map((r) => r.id) };
+  });
+  groups.sort(
+    (a, b) =>
+      b.visites - a.visites ||
+      `${a.rep.nom} ${a.rep.prenom}`.localeCompare(`${b.rep.nom} ${b.rep.prenom}`, "fr", { sensitivity: "base" })
+  );
+
+  const handleDeleteGroup = async (g: VisitorGroup) => {
+    if (!confirm(`Supprimer "${g.rep.nom} ${g.rep.prenom}" et ses ${g.visites} visite(s) ?`)) return;
+    setBusyKey(g.key);
+    try {
+      for (const id of g.ids) {
+        await fetch(`/api/visitors/${id}`, { method: "DELETE" });
+      }
+      showToast("Invité supprimé", "success");
+      revalidator.revalidate();
+    } catch {
+      showToast("Erreur lors de la suppression", "error");
+    } finally {
+      setBusyKey(null);
+    }
   };
 
-  useEffect(() => {
-    if (fetcher.state === "idle" && fetcher.data) {
-      if ((fetcher.data as any).success) {
-        showToast("Visiteur supprimé", "success");
+  // #3 — Convertir un invité récurrent en membre permanent
+  const handleConvert = async (g: VisitorGroup) => {
+    if (
+      !confirm(
+        `Convertir "${g.rep.nom} ${g.rep.prenom}" en membre permanent ?\nSes ${g.visites} visite(s) seront retirées de la liste des invités.`
+      )
+    )
+      return;
+    setBusyKey(g.key);
+    try {
+      const res = await fetch("/api/visitors-convert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nom: g.rep.nom,
+          prenom: g.rep.prenom,
+          telephone: g.rep.telephone || "",
+          categorie: g.rep.categorie,
+          residence: g.rep.residence || "",
+          ids: g.ids,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        showToast(
+          data.alreadyMember ? "Cette personne est déjà membre — invité retiré" : "Invité converti en membre ✓",
+          "success"
+        );
         revalidator.revalidate();
-      } else if ((fetcher.data as any).error) {
-        showToast((fetcher.data as any).error, "error");
+      } else {
+        showToast(data.error || "Erreur lors de la conversion", "error");
       }
+    } catch {
+      showToast("Erreur réseau", "error");
+    } finally {
+      setBusyKey(null);
     }
-  }, [fetcher.state, fetcher.data]);
+  };
 
   const handleEdit = (v: Visiteur) => {
     setVisitorSaveHandler(async (payload) => {
@@ -458,7 +514,6 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
       fd.append("telephone", payload.telephone || "");
       fd.append("culteId", String(payload.culteId));
       fd.append("categorie", payload.categorie);
-      fd.append("dateDeNaissance", payload.dateDeNaissance || "");
       fd.append("residence", payload.residence || "");
       fd.append("provenance", payload.provenance || "");
       const res = await fetch(`/api/visitors/${payload.id}`, { method: "PUT", body: fd });
@@ -475,13 +530,13 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
   };
 
   const handleDownloadExcel = async () => {
-    const headers = ["Nom", "Prénom", "Téléphone", "Catégorie", "Date de naissance", "Lieu de résidence", "Culte", "Date", "Provenance"];
+    const headers = ["Nom", "Prénom", "Téléphone", "Catégorie", "Lieu de résidence", "Culte", "Date", "Provenance"];
     const rows = filtered.map((v) => [
       v.nom, v.prenom, v.telephone || "", CATEGORY_LABELS[v.categorie] || v.categorie,
-      v.dateDeNaissance || "", v.residence || "", v.culte, v.date, v.provenance || "",
+      v.residence || "", v.culte, v.date, v.provenance || "",
     ]);
     const filename = `visiteurs_${new Date().toLocaleDateString("fr-FR").replace(/\//g, "-")}.xlsx`;
-    const widths = [25, 25, 22, 20, 15, 25, 20, 20, 40];
+    const widths = [25, 25, 22, 20, 25, 20, 20, 40];
 
     try {
       const res = await fetch("/api/report", {
@@ -527,7 +582,7 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
           Télécharger Excel
         </button>
-        <span className="text-sm text-gray-500">{filtered.length} visiteur(s)</span>
+        <span className="text-sm text-gray-500">{groups.length} invité(s) · {filtered.length} visite(s)</span>
       </div>
       <div className="overflow-x-auto rounded-xl border border-[#ede7f6]">
         <table className="w-full text-sm">
@@ -537,59 +592,72 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
               <th className="px-4 py-3 text-left font-semibold">Prénom</th>
               <th className="px-4 py-3 text-left font-semibold">Téléphone</th>
               <th className="px-4 py-3 text-left font-semibold">Catégorie</th>
-              <th className="px-4 py-3 text-left font-semibold">Date de naissance</th>
               <th className="px-4 py-3 text-left font-semibold">Résidence</th>
-              <th className="px-4 py-3 text-left font-semibold">Culte</th>
-              <th className="px-4 py-3 text-left font-semibold">Date</th>
-              <th className="px-4 py-3 text-left font-semibold">Provenance</th>
+              <th className="px-4 py-3 text-center font-semibold">Visites</th>
+              <th className="px-4 py-3 text-left font-semibold">Dernière visite</th>
               <th className="px-4 py-3 text-center font-semibold">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 ? (
+            {groups.length === 0 ? (
               <tr>
-                <td colSpan={10} className="text-center py-8 text-gray-400">
-                  Aucun visiteur trouvé
+                <td colSpan={8} className="text-center py-8 text-gray-400">
+                  Aucun invité trouvé
                 </td>
               </tr>
             ) : (
-              filtered.map((v) => (
-                <tr key={v.id} className="border-t border-[#f0ebff] hover:bg-[#faf8ff] transition-colors">
-                  <td className="px-4 py-3 font-medium">{v.nom}</td>
-                  <td className="px-4 py-3">{v.prenom}</td>
-                  <td className="px-4 py-3 text-gray-600">{v.telephone || "—"}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-[#ede7f6] text-[#4a2b87]">
-                      {CATEGORY_LABELS[v.categorie] || v.categorie}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">{v.dateDeNaissance || "—"}</td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[120px] truncate">{v.residence || "—"}</td>
-                  <td className="px-4 py-3 text-gray-600">{v.culte}</td>
-                  <td className="px-4 py-3 text-gray-600">{v.date}</td>
-                  <td className="px-4 py-3 text-gray-600 max-w-[120px] truncate">{v.provenance || "—"}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleEdit(v)}
-                        className="text-[#4a2b87] hover:text-[#5a3b97] text-xs px-2 py-1 rounded hover:bg-[#ede7f6] transition-colors"
+              groups.map((g) => {
+                const busy = busyKey === g.key;
+                return (
+                  <tr key={g.key} className="border-t border-[#f0ebff] hover:bg-[#faf8ff] transition-colors">
+                    <td className="px-4 py-3 font-medium">{g.rep.nom}</td>
+                    <td className="px-4 py-3">{g.rep.prenom}</td>
+                    <td className="px-4 py-3 text-gray-600">{g.rep.telephone || "—"}</td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-[#ede7f6] text-[#4a2b87]">
+                        {CATEGORY_LABELS[g.rep.categorie] || g.rep.categorie}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600 max-w-[120px] truncate">{g.rep.residence || "—"}</td>
+                    <td className="px-4 py-3 text-center">
+                      <span
+                        className={`inline-flex items-center justify-center min-w-[2rem] px-2 py-0.5 rounded-full text-xs font-semibold ${g.visites >= 3 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-600"}`}
+                        title={g.visites >= 3 ? "Invité régulier — candidat à devenir membre" : undefined}
                       >
-                        Modifier
-                      </button>
-                      <button
-                        onClick={() => handleDelete(v.id, `${v.nom} ${v.prenom}`)}
-                        disabled={fetcher.state !== "idle"}
-                        className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50 flex items-center gap-1"
-                      >
-                        {fetcher.state !== "idle" && fetcher.formData?.get("id") === String(v.id) ? (
-                          <Spinner className="w-3 h-3 border-red-200 border-t-red-600" />
-                        ) : null}
-                        Supprimer
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
+                        {g.visites}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-600">{g.rep.date}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button
+                          onClick={() => handleConvert(g)}
+                          disabled={busy}
+                          title="Transformer cet invité en membre permanent"
+                          className="text-green-600 hover:text-green-800 text-xs px-2 py-1 rounded hover:bg-green-50 transition-colors disabled:opacity-50 flex items-center gap-1 font-medium"
+                        >
+                          {busy ? <Spinner className="w-3 h-3 border-green-200 border-t-green-600" /> : null}
+                          → Membre
+                        </button>
+                        <button
+                          onClick={() => handleEdit(g.rep)}
+                          disabled={busy}
+                          className="text-[#4a2b87] hover:text-[#5a3b97] text-xs px-2 py-1 rounded hover:bg-[#ede7f6] transition-colors disabled:opacity-50"
+                        >
+                          Modifier
+                        </button>
+                        <button
+                          onClick={() => handleDeleteGroup(g)}
+                          disabled={busy}
+                          className="text-red-500 hover:text-red-700 text-xs px-2 py-1 rounded hover:bg-red-50 transition-colors disabled:opacity-50"
+                        >
+                          Supprimer
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -601,7 +669,28 @@ function VisitorTable({ visiteurs }: { visiteurs: Visiteur[] }) {
 // ─── Reports Tab ────────────────────────────────────────────────────────────────
 function ReportsTab({ presences, visiteurs }: { presences: Presence[]; visiteurs: Visiteur[] }) {
   const [isExporting, setIsExporting] = useState(false);
+  const [reportDate, setReportDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const [isExportingDaily, setIsExportingDaily] = useState(false);
   const { showToast } = useToast();
+
+  const handleDownloadDailyExcel = async () => {
+    setIsExportingDaily(true);
+    try {
+      const res = await fetch(`/api/report-daily?date=${reportDate}`);
+      if (!res.ok) throw new Error("Erreur lors de l'export");
+      const buffer = await res.arrayBuffer();
+      downloadBlob(
+        buffer,
+        `rapport-journalier-${reportDate}.xlsx`,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      );
+      showToast("Rapport journalier Excel téléchargé", "success");
+    } catch {
+      showToast("Erreur lors de l'export du rapport journalier", "error");
+    } finally {
+      setIsExportingDaily(false);
+    }
+  };
 
   const totalPresents = presences.filter((p) => p.presence === "Présent").length;
   const totalAbsents = presences.filter((p) => p.presence !== "Présent").length;
@@ -662,6 +751,41 @@ function ReportsTab({ presences, visiteurs }: { presences: Presence[]; visiteurs
 
   return (
     <div className="space-y-6">
+      {/* Rapport journalier */}
+      <div className="rounded-xl border border-[#ede7f6] bg-[#faf8ff] p-4">
+        <h3 className="text-base font-semibold text-[#4a2b87] mb-1">Rapport journalier</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Présents, absents (calculés) et invités d'une journée. Le PDF s'imprime depuis le navigateur (Imprimer → Enregistrer en PDF).
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">Date</label>
+            <input
+              type="date"
+              value={reportDate}
+              onChange={(e) => setReportDate(e.target.value)}
+              className="px-3 py-2 rounded-lg border border-gray-300 bg-white text-sm focus:border-[#4a2b87] focus:ring-2 focus:ring-[#4a2b87]/20 focus:outline-none"
+            />
+          </div>
+          <a
+            href={`/rapport-journalier?date=${reportDate}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#4a2b87] text-white text-sm font-medium rounded-xl hover:bg-[#5a3b97] transition-colors"
+          >
+            📄 Rapport journalier (PDF)
+          </a>
+          <button
+            onClick={handleDownloadDailyExcel}
+            disabled={isExportingDaily}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#c7b8ea] text-[#4a2b87] text-sm font-medium rounded-xl hover:bg-purple-50 transition-colors disabled:opacity-60"
+          >
+            {isExportingDaily ? <Spinner /> : null}
+            Rapport journalier (Excel)
+          </button>
+        </div>
+      </div>
+
       {/* Export button */}
       <div className="flex justify-end">
         <button
@@ -670,7 +794,7 @@ function ReportsTab({ presences, visiteurs }: { presences: Presence[]; visiteurs
           className="flex items-center gap-2 px-5 py-2.5 bg-[#4a2b87] text-white text-sm font-medium rounded-xl hover:bg-[#5a3b97] transition-colors disabled:opacity-60"
         >
           {isExporting ? <Spinner className="border-white/30 border-t-white" /> : null}
-          Exporter Excel (.xlsx)
+          Exporter Excel global (.xlsx)
         </button>
       </div>
 

@@ -16,7 +16,6 @@ export async function action({ request }: Route.ActionArgs) {
   const culteId = parseInt(formData.get("culteId") as string) || 1;
   const date = formData.get("date") as string;
   const categorie = (formData.get("categorie") as string) || "hommes";
-  const dateDeNaissance = (formData.get("dateDeNaissance") as string) || "";
   const residence = (formData.get("residence") as string) || null;
   const provenance = formData.get("provenance") as string | null;
 
@@ -32,9 +31,8 @@ export async function action({ request }: Route.ActionArgs) {
     prenom,
     telephone || null,
     culteId,
-    date || new Date().toLocaleDateString(),
+    date || new Date().toISOString().split("T")[0],
     categorie,
-    dateDeNaissance,
     residence,
     provenance || null
   );

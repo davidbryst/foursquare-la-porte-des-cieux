@@ -1,6 +1,7 @@
 import { createClient, type Client } from "@libsql/client";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
+import type { ReportPerson, DailyReport } from "~/utils/report";
 
 const scryptAsync = promisify(scrypt);
 
@@ -24,7 +25,7 @@ export interface Member {
   nom: string;
   prenom: string;
   numero: string | null;
-  dateDeNaissance: string;
+  dateEnregistrement: string | null;
   residence: string | null;
   categorie: string;
   photo: string | null;
@@ -57,7 +58,6 @@ export interface Visiteur {
   culteId: number;
   date: string;
   categorie: string;
-  dateDeNaissance: string;
   residence: string | null;
   provenance: string | null;
 }
@@ -102,8 +102,9 @@ async function initTables(): Promise<void> {
       "nom" TEXT NOT NULL,
       "prenom" TEXT NOT NULL,
       "numero" TEXT UNIQUE,
-      "dateDeNaissance" TEXT NOT NULL,
+      "dateDeNaissance" TEXT,
       "residence" TEXT,
+      "dateEnregistrement" TEXT,
       PRIMARY KEY("id" AUTOINCREMENT)
     );
 
@@ -165,6 +166,8 @@ async function initTables(): Promise<void> {
     `ALTER TABLE visiteur ADD COLUMN dateDeNaissance TEXT`,
     `ALTER TABLE membre ADD COLUMN residence TEXT`,
     `ALTER TABLE visiteur ADD COLUMN residence TEXT`,
+    // Date d'enregistrement du membre (jour de l'inscription, pas la date de naissance)
+    `ALTER TABLE membre ADD COLUMN dateEnregistrement TEXT`,
   ];
   for (const sql of migrations) {
     try {
@@ -178,10 +181,18 @@ async function initTables(): Promise<void> {
   const adminCount = await database.execute("SELECT COUNT(*) as count FROM admin");
   const count = (adminCount.rows[0] as any)?.count || 0;
   if (count === 0) {
-    const hashed = await hashPassword("Culte@Pr0t3ction");
+    const defaultUser = process.env.ADMIN_USERNAME?.trim() || "Culte";
+    const defaultPass = process.env.ADMIN_PASSWORD || "Culte@Pr0t3ction";
+    if (!process.env.ADMIN_PASSWORD) {
+      console.warn(
+        "[SÉCURITÉ] Aucun ADMIN_PASSWORD défini — l'admin est créé avec le mot de passe par défaut. " +
+        "Définissez ADMIN_PASSWORD (et ADMIN_USERNAME) puis changez-le immédiatement."
+      );
+    }
+    const hashed = await hashPassword(defaultPass);
     await database.execute({
       sql: "INSERT INTO admin (username, password) VALUES (?, ?)",
-      args: ["Culte", hashed],
+      args: [defaultUser, hashed],
     });
     console.log("Admin par défaut créé");
   } else {
@@ -209,17 +220,12 @@ async function initTables(): Promise<void> {
   });
 }
 
-// === HELPER: Reset SQLite sequence after deletion ===
-async function resetTableSequence(tableName: string, nb: number = 1): Promise<void> {
-  const database = getDb();
-  try {
-    await database.execute({
-      sql: `UPDATE sqlite_sequence SET seq = CAST(CASE WHEN seq > (? - 1) THEN seq - ? ELSE 0 END AS INTEGER) WHERE name = ?`,
-      args: [Math.floor(nb), Math.floor(nb), tableName],
-    });
-  } catch (e) {
-    console.warn(`Warning: Could not reset sequence for table ${tableName}:`, e);
-  }
+// Libellé d'un culte à partir de son identifiant (1 = 1er, 2 = 2ème, 3 = Autre)
+function culteLabel(culteId: number): string {
+  if (culteId === 1) return "1er culte";
+  if (culteId === 2) return "2ème culte";
+  if (culteId === 3) return "Autre";
+  return `Culte ${culteId}`;
 }
 
 // === MEMBRES ===
@@ -227,7 +233,7 @@ async function resetTableSequence(tableName: string, nb: number = 1): Promise<vo
 export async function getAllMembers(): Promise<Member[]> {
   const database = await ensureDb();
   const result = await database.execute(
-    "SELECT id, nom, prenom, numero, dateDeNaissance, residence, COALESCE(categorie, 'hommes') as categorie, photo FROM membre WHERE nom IS NOT NULL AND prenom IS NOT NULL"
+    "SELECT id, nom, prenom, numero, dateEnregistrement, residence, COALESCE(categorie, 'hommes') as categorie, photo FROM membre WHERE nom IS NOT NULL AND prenom IS NOT NULL"
   );
   return result.rows as unknown as Member[];
 }
@@ -236,16 +242,19 @@ export async function addMember(
   nom: string,
   prenom: string,
   numero: string | null,
-  dateDeNaissance: string,
   residence: string | null = null,
   categorie: string = "hommes",
   photo: string | null = null
 ): Promise<number | null> {
   const database = await ensureDb();
+  // Date d'enregistrement = jour de l'inscription (côté serveur)
+  const dateEnregistrement = new Date().toISOString().split("T")[0];
   try {
     const result = await database.execute({
-      sql: "INSERT INTO membre (nom, prenom, numero, dateDeNaissance, residence, categorie, photo) VALUES (?, ?, ?, ?, ?, ?, ?)",
-      args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, residence || null, categorie, photo || null],
+      // dateDeNaissance est une colonne héritée NOT NULL sur les bases existantes :
+      // on y insère "" pour satisfaire la contrainte, la vraie info est dateEnregistrement.
+      sql: "INSERT INTO membre (nom, prenom, numero, dateDeNaissance, dateEnregistrement, residence, categorie, photo) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      args: [nom.trim(), prenom.trim(), numero || null, "", dateEnregistrement, residence || null, categorie, photo || null],
     });
     console.log("Nouveau membre ajouté avec ID:", result.lastInsertRowid);
     return Number(result.lastInsertRowid);
@@ -260,24 +269,32 @@ export async function updateMember(
   nom: string,
   prenom: string,
   numero: string | null,
-  dateDeNaissance: string,
   residence: string | null,
   categorie?: string,
   photo?: string | null
 ): Promise<boolean> {
   const database = await ensureDb();
   try {
+    // On ne touche une colonne optionnelle que si elle est explicitement fournie.
+    // photo === undefined  -> on garde la photo existante
+    // photo === null / ""  -> on efface la photo
+    const fields = ["nom = ?", "prenom = ?", "numero = ?", "residence = ?"];
+    const args: (string | number | null)[] = [
+      nom.trim(), prenom.trim(), numero || null, residence || null,
+    ];
     if (categorie !== undefined) {
-      await database.execute({
-        sql: "UPDATE membre SET nom = ?, prenom = ?, numero = ?, dateDeNaissance = ?, residence = ?, categorie = ?, photo = COALESCE(?, photo) WHERE id = ?",
-        args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, residence || null, categorie, photo !== undefined ? photo : null, memberId],
-      });
-    } else {
-      await database.execute({
-        sql: "UPDATE membre SET nom = ?, prenom = ?, numero = ?, dateDeNaissance = ?, residence = ? WHERE id = ?",
-        args: [nom.trim(), prenom.trim(), numero || null, dateDeNaissance, residence || null, memberId],
-      });
+      fields.push("categorie = ?");
+      args.push(categorie);
     }
+    if (photo !== undefined) {
+      fields.push("photo = ?");
+      args.push(photo || null);
+    }
+    args.push(memberId);
+    await database.execute({
+      sql: `UPDATE membre SET ${fields.join(", ")} WHERE id = ?`,
+      args,
+    });
     return true;
   } catch (e) {
     console.error("Erreur lors de la modification du membre:", e);
@@ -288,12 +305,7 @@ export async function updateMember(
 export async function deleteMember(memberId: number): Promise<boolean> {
   const database = await ensureDb();
   try {
-    const presenceCountResult = await database.execute({
-      sql: "SELECT COUNT(*) as count FROM presence WHERE member = ?",
-      args: [memberId],
-    });
-    const nbPresences = (presenceCountResult.rows[0] as any)?.count || 0;
-
+    // Supprimer d'abord les présences liées (clé étrangère), puis le membre.
     await database.execute({
       sql: "DELETE FROM presence WHERE member = ?",
       args: [memberId],
@@ -302,11 +314,6 @@ export async function deleteMember(memberId: number): Promise<boolean> {
       sql: "DELETE FROM membre WHERE id = ?",
       args: [memberId],
     });
-
-    await resetTableSequence("membre", 1);
-    if (nbPresences > 0) {
-      await resetTableSequence("presence", nbPresences);
-    }
     return true;
   } catch (e) {
     console.error("Erreur lors de la suppression du membre:", e);
@@ -348,20 +355,13 @@ export async function getAllPresences(): Promise<Presence[]> {
   `);
 
   return result.rows.map((row: any) => {
-    const culteLabel =
-      row.culteId === 1
-        ? "1er culte"
-        : row.culteId === 2
-          ? "2ème culte"
-          : `Culte ${row.culteId}`;
-
     return {
       id: row.id,
       nom: row.nom || "Inconnu",
       prenom: row.prenom || "Inconnu",
       telephone: row.numero || "N/A",
       presence: row.presence === 1 ? "Présent" : "Absent",
-      culte: culteLabel,
+      culte: culteLabel(row.culteId),
       date: row.date || new Date().toLocaleDateString(),
       pkabsence: row.pkabsence || null,
       categorie: row.categorie || "hommes",
@@ -435,7 +435,6 @@ export async function deletePresence(presenceId: number): Promise<boolean> {
       sql: "DELETE FROM presence WHERE id = ?",
       args: [presenceId],
     });
-    await resetTableSequence("presence");
     return true;
   } catch (e) {
     console.error("Erreur lors de la suppression de la présence:", e);
@@ -456,7 +455,6 @@ export async function getAllVisiteurs(): Promise<Visiteur[]> {
       v.culte as culteId,
       v.date,
       COALESCE(v.categorie, 'hommes') as categorie,
-      v.dateDeNaissance,
       v.residence,
       v.provenance
     FROM visiteur v
@@ -469,10 +467,9 @@ export async function getAllVisiteurs(): Promise<Visiteur[]> {
     prenom: row.prenom || "",
     telephone: row.telephone || null,
     culteId: row.culteId,
-    culte: row.culteId === 1 ? "1er culte" : row.culteId === 2 ? "2ème culte" : `Culte ${row.culteId}`,
+    culte: culteLabel(row.culteId),
     date: row.date || "",
     categorie: row.categorie || "hommes",
-    dateDeNaissance: row.dateDeNaissance || "",
     residence: row.residence || null,
     provenance: row.provenance || null,
   }));
@@ -485,15 +482,14 @@ export async function addVisiteur(
   culteId: number,
   date: string,
   categorie: string,
-  dateDeNaissance: string,
   residence: string | null,
   provenance: string | null
 ): Promise<number | null> {
   const database = await ensureDb();
   try {
     const result = await database.execute({
-      sql: "INSERT INTO visiteur (nom, prenom, telephone, culte, date, categorie, dateDeNaissance, residence, provenance) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-      args: [nom.trim(), prenom.trim(), telephone || null, culteId, date, categorie, dateDeNaissance, residence || null, provenance || null],
+      sql: "INSERT INTO visiteur (nom, prenom, telephone, culte, date, categorie, residence, provenance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+      args: [nom.trim(), prenom.trim(), telephone || null, culteId, date, categorie, residence || null, provenance || null],
     });
     return Number(result.lastInsertRowid);
   } catch (e) {
@@ -509,15 +505,14 @@ export async function updateVisiteur(
   telephone: string | null,
   culteId: number,
   categorie: string,
-  dateDeNaissance: string,
   residence: string | null,
   provenance: string | null
 ): Promise<boolean> {
   const database = await ensureDb();
   try {
     await database.execute({
-      sql: "UPDATE visiteur SET nom = ?, prenom = ?, telephone = ?, culte = ?, categorie = ?, dateDeNaissance = ?, residence = ?, provenance = ? WHERE id = ?",
-      args: [nom.trim(), prenom.trim(), telephone || null, culteId, categorie, dateDeNaissance, residence || null, provenance || null, visiteurId],
+      sql: "UPDATE visiteur SET nom = ?, prenom = ?, telephone = ?, culte = ?, categorie = ?, residence = ?, provenance = ? WHERE id = ?",
+      args: [nom.trim(), prenom.trim(), telephone || null, culteId, categorie, residence || null, provenance || null, visiteurId],
     });
     return true;
   } catch (e) {
@@ -533,7 +528,6 @@ export async function deleteVisiteur(visiteurId: number): Promise<boolean> {
       sql: "DELETE FROM visiteur WHERE id = ?",
       args: [visiteurId],
     });
-    await resetTableSequence("visiteur");
     return true;
   } catch (e) {
     console.error("Erreur lors de la suppression du visiteur:", e);
@@ -664,4 +658,66 @@ export async function checkAdminExists(username: string): Promise<boolean> {
     console.error("Erreur lors de la vérification de l'admin:", e);
     return false;
   }
+}
+
+// === RAPPORT JOURNALIER ===
+
+// Tri alphabétique français par nom puis prénom
+function sortByName(a: ReportPerson, b: ReportPerson): number {
+  return `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, "fr", { sensitivity: "base" });
+}
+
+// Données du rapport journalier pour une date (logique « journalier » :
+// présent à AU MOINS un culte du jour => jamais compté absent).
+export async function getDailyReportData(date: string): Promise<DailyReport> {
+  const database = await ensureDb();
+
+  // Membres présents (présence = 1) au moins une fois ce jour-là, dédoublonnés
+  const presRes = await database.execute({
+    sql: `SELECT DISTINCT m.id, m.nom, m.prenom, COALESCE(m.categorie, 'hommes') as categorie, m.numero
+          FROM presence p JOIN membre m ON p.member = m.id
+          WHERE p.date = ? AND p.presence = 1`,
+    args: [date],
+  });
+  const presentIds = new Set<number>();
+  const presents: ReportPerson[] = [];
+  for (const r of presRes.rows as any[]) {
+    presentIds.add(Number(r.id));
+    presents.push({ nom: r.nom || "", prenom: r.prenom || "", categorie: r.categorie || "hommes", contact: r.numero || "" });
+  }
+
+  // Cultes ayant eu de l'activité ce jour-là
+  const cultesRes = await database.execute({
+    sql: `SELECT DISTINCT culte FROM presence WHERE date = ? ORDER BY culte`,
+    args: [date],
+  });
+  const cultes = (cultesRes.rows as any[]).map((r) => culteLabel(Number(r.culte)));
+
+  // Absents = tous les membres non présents ce jour-là
+  const allMembers = await getAllMembers();
+  const absents: ReportPerson[] = allMembers
+    .filter((m) => !presentIds.has(m.id))
+    .map((m) => ({ nom: m.nom || "", prenom: m.prenom || "", categorie: m.categorie || "hommes", contact: m.numero || "" }));
+
+  // Invités présents ce jour-là
+  const visRes = await database.execute({
+    sql: `SELECT nom, prenom, COALESCE(categorie, 'hommes') as categorie, telephone FROM visiteur WHERE date = ?`,
+    args: [date],
+  });
+  const invites: ReportPerson[] = (visRes.rows as any[]).map((v) => ({
+    nom: v.nom || "", prenom: v.prenom || "", categorie: v.categorie || "hommes", contact: v.telephone || "",
+  }));
+
+  presents.sort(sortByName);
+  absents.sort(sortByName);
+  invites.sort(sortByName);
+
+  return {
+    date,
+    cultes,
+    presents,
+    invites,
+    absents,
+    counts: { presents: presents.length + invites.length, absents: absents.length, invites: invites.length },
+  };
 }

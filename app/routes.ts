@@ -16,10 +16,13 @@ export default [
   // Nouvelles routes
   route("api/visitors", "routes/api/visitors.ts"),
   route("api/visitors/:id", "routes/api/visitors-id.ts"),
+  route("api/visitors-convert", "routes/api/visitors-convert.ts"),
   route("api/presence-unlock", "routes/api/presence-unlock.ts"),
   route("api/report", "routes/api/report.ts"),
+  route("api/report-daily", "routes/api/report-daily.ts"),
   route("api/config", "routes/api/config.ts"),
   route("api/rollcall", "routes/api/rollcall.ts"),
   route("display", "routes/display.tsx"),
   route("rollcall", "routes/rollcall.tsx"),
+  route("rapport-journalier", "routes/rapport-journalier.tsx"),
 ] satisfies RouteConfig;
