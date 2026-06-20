@@ -73,7 +73,7 @@ export default function DisplayPage({ loaderData }: Route.ComponentProps) {
           ← Dashboard
         </Link>
         <Link
-          to="/rollcall"
+          to="/rollcall?from=display"
           className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white text-sm rounded-lg transition-colors"
         >
           <span className="hidden sm:inline">📋</span>

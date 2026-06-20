@@ -73,7 +73,7 @@ export default function HomePage() {
           {/* Liens nav */}
           <div className="flex items-center gap-2">
             <Link
-              to="/rollcall"
+              to="/rollcall?from=home"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4a2b87] text-white text-xs font-semibold rounded-lg hover:bg-[#5a3b97] transition-colors shadow-sm"
             >
               <span className="hidden sm:inline">📋</span>
@@ -255,7 +255,7 @@ function MemberForm({
           className="w-full rounded-xl py-3 px-4 font-semibold cursor-pointer transition-all duration-200 text-sm bg-[#4a2b87] text-white hover:bg-[#5a3b97] shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">
           {isSubmitting ? <><Spinner className="border-white/30 border-t-white" /><span>Enregistrement...</span></> : "Enregistrer"}
         </button>
-        <Link to="/rollcall"
+        <Link to="/rollcall?from=home"
           className="w-full rounded-xl py-3 px-4 font-medium cursor-pointer transition-all duration-200 text-sm border border-purple-200 bg-white text-[#4a2b87] hover:bg-purple-50 block text-center">
           Déjà inscrit ? Marquer ma présence →
         </Link>

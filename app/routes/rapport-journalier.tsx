@@ -57,17 +57,19 @@ export default function RapportJournalier({ loaderData }: Route.ComponentProps) 
         {/* En-tête */}
         <header className="rj-header">
           <img src="/apple-touch-icon.png" alt="Logo" className="rj-logo" />
+          <p className="rj-kicker">Église Foursquare La Porte des Cieux</p>
           <h1>Rapport Journalier de Présence</h1>
-          <p className="rj-sub">Journée du {dateFr}</p>
-          <p className="rj-sub">Cultes du jour :</p>
-          {report.cultes.length > 0 ? (
-            report.cultes.map((c) => (
-              <p key={c} className="rj-culte">- {c}</p>
-            ))
-          ) : (
-            <p className="rj-culte">- Aucun culte enregistré ce jour</p>
-          )}
-          <hr />
+          <div className="rj-datebadge">Journée du {dateFr}</div>
+          <div className="rj-cultes">
+            <span className="rj-cultes-label">Cultes&nbsp;:</span>
+            {report.cultes.length > 0 ? (
+              report.cultes.map((c) => (
+                <span key={c} className="rj-chip">{c}</span>
+              ))
+            ) : (
+              <span className="rj-chip rj-chip-muted">Aucun culte enregistré ce jour</span>
+            )}
+          </div>
         </header>
 
         {/* Cartes de synthèse */}
@@ -103,12 +105,51 @@ export default function RapportJournalier({ loaderData }: Route.ComponentProps) 
           <h2>Liste des Absents ({report.absents.length})</h2>
           <PersonTable people={report.absents} showType />
         </section>
+
+        {/* Détail culte par culte */}
+        {report.parCulte.length > 0 && (
+          <section className="rj-section rj-culte-detail">
+            <h2 className="rj-culte-title">Détail par culte</h2>
+            <p className="rj-note">
+              « Absents à ce culte » = membres non présents à <em>ce culte précis</em>.
+              Un membre venu à un autre culte du jour reste compté présent au niveau de la journée (ci-dessus).
+            </p>
+            {report.parCulte.map((c) => (
+              <div key={c.culte} className="rj-culte-block">
+                <h3 className="rj-culte-heading">{c.culte}</h3>
+                <div className="rj-cards">
+                  <div className="rj-card">
+                    <div className="rj-card-value">{c.counts.presents}</div>
+                    <div className="rj-card-label">Présents</div>
+                  </div>
+                  <div className="rj-card">
+                    <div className="rj-card-value">{c.counts.absents}</div>
+                    <div className="rj-card-label">Absents</div>
+                  </div>
+                  <div className="rj-card">
+                    <div className="rj-card-value">{c.counts.invites}</div>
+                    <div className="rj-card-label">Invités</div>
+                  </div>
+                </div>
+
+                <h4 className="rj-sub-h">Présents — {c.culte} ({c.presents.length})</h4>
+                <PersonTable people={c.presents} />
+
+                <h4 className="rj-sub-h">Invités — {c.culte} ({c.invites.length})</h4>
+                <PersonTable people={c.invites} />
+
+                <h4 className="rj-sub-h">Absents — {c.culte} ({c.absents.length})</h4>
+                <PersonTable people={c.absents} showType />
+              </div>
+            ))}
+          </section>
+        )}
       </div>
 
-      {/* Pied de page (répété à l'impression) */}
+      {/* Pied de page (affiché une fois, en fin de document à l'impression) */}
       <footer className="rj-footer">
-        <div>Rapport généré le {generatedAt}</div>
-        <div>Système de Gestion de Présence - Foursquare La Porte des Cieux</div>
+        <span className="rj-footer-brand">Foursquare La Porte des Cieux</span>
+        <span className="rj-footer-meta">Système de Gestion de Présence · Généré le {generatedAt}</span>
       </footer>
     </div>
   );
@@ -155,12 +196,15 @@ const REPORT_CSS = `
 .rj-btn-primary { background: #4a2b87; color: #fff; }
 .rj-btn-light { background: #ede7f6; color: #4a2b87; }
 .rj-sheet { max-width: 800px; margin: 16px auto; background: #fff; padding: 32px 36px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
-.rj-header { text-align: center; }
-.rj-logo { width: 64px; height: 64px; object-fit: contain; margin: 0 auto 8px; display: block; }
-.rj-header h1 { font-size: 22px; font-weight: 700; margin: 8px 0; color: #111827; }
-.rj-sub { margin: 2px 0; color: #4b5563; font-size: 14px; }
-.rj-culte { margin: 2px 0; color: #4b5563; font-size: 13px; }
-.rj-header hr { margin: 16px 0; border: none; border-top: 2px solid #4a2b87; }
+.rj-header { text-align: center; padding-bottom: 18px; border-bottom: 2px solid #4a2b87; }
+.rj-logo { width: 56px; height: 56px; object-fit: contain; margin: 0 auto 10px; display: block; }
+.rj-kicker { margin: 0 0 2px; font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #7c6aa6; }
+.rj-header h1 { font-size: 24px; font-weight: 800; margin: 4px 0 14px; color: #1f2937; letter-spacing: -.01em; }
+.rj-datebadge { display: inline-block; background: #4a2b87; color: #fff; font-size: 13px; font-weight: 600; padding: 6px 18px; border-radius: 999px; }
+.rj-cultes { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; justify-content: center; }
+.rj-cultes-label { font-size: 12px; color: #6b7280; font-weight: 600; }
+.rj-chip { font-size: 12px; font-weight: 600; color: #4a2b87; background: #ede7f6; border: 1px solid #d7c9f0; padding: 3px 11px; border-radius: 999px; }
+.rj-chip-muted { color: #9ca3af; background: #f3f4f6; border-color: #e5e7eb; }
 .rj-cards { display: flex; gap: 16px; margin: 20px 0 28px; }
 .rj-card { flex: 1; border: 1px solid #e5e7eb; border-radius: 10px; padding: 18px 10px; text-align: center; }
 .rj-card-value { font-size: 30px; font-weight: 700; color: #4a2b87; }
@@ -172,7 +216,14 @@ const REPORT_CSS = `
 .rj-table td { padding: 7px 10px; border: 1px solid #e5e7eb; color: #374151; }
 .rj-col-num { width: 44px; }
 .rj-empty { font-size: 13px; color: #6b7280; font-style: italic; }
-.rj-footer { text-align: center; color: #9ca3af; font-size: 11px; padding: 16px; }
+.rj-footer { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; color: #9ca3af; font-size: 11px; padding: 16px; }
+.rj-footer-brand { font-weight: 700; color: #6b7280; }
+.rj-footer-meta { color: #9ca3af; }
+.rj-culte-title { color: #4a2b87; }
+.rj-note { font-size: 12px; color: #6b7280; font-style: italic; margin: 0 0 12px; }
+.rj-culte-block { margin-top: 18px; padding-top: 14px; border-top: 2px solid #ede7f6; }
+.rj-culte-heading { font-size: 16px; font-weight: 700; color: #4a2b87; margin: 0 0 10px; }
+.rj-sub-h { font-size: 13px; font-weight: 700; color: #374151; margin: 14px 0 6px; }
 
 @media print {
   .rj-root { background: #fff; }
@@ -181,7 +232,9 @@ const REPORT_CSS = `
   .rj-table thead { display: table-header-group; }
   .rj-table tr { page-break-inside: avoid; }
   .rj-section { page-break-inside: auto; }
-  .rj-footer { position: fixed; bottom: 0; left: 0; right: 0; }
-  @page { margin: 16mm 12mm 20mm; }
+  .rj-culte-block { page-break-before: always; }
+  .rj-culte-heading { page-break-after: avoid; }
+  .rj-footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e5e7eb; page-break-inside: avoid; }
+  @page { margin: 14mm 12mm; }
 }
 `;

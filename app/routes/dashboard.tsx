@@ -113,7 +113,7 @@ function PresenceTable({ presences }: { presences: Presence[] }) {
     <div>
       {/* Accès liste d'appel */}
       <a
-        href="/rollcall"
+        href="/rollcall?from=dashboard"
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center justify-between gap-3 mb-5 px-4 py-3 bg-[#4a2b87] text-white rounded-xl hover:bg-[#5a3b97] transition-colors shadow-sm group"
@@ -786,16 +786,30 @@ function ReportsTab({ presences, visiteurs }: { presences: Presence[]; visiteurs
         </div>
       </div>
 
-      {/* Export button */}
-      <div className="flex justify-end">
-        <button
-          onClick={handleExportExcel}
-          disabled={isExporting}
-          className="flex items-center gap-2 px-5 py-2.5 bg-[#4a2b87] text-white text-sm font-medium rounded-xl hover:bg-[#5a3b97] transition-colors disabled:opacity-60"
-        >
-          {isExporting ? <Spinner className="border-white/30 border-t-white" /> : null}
-          Exporter Excel global (.xlsx)
-        </button>
+      {/* Rapport global */}
+      <div className="rounded-xl border border-[#ede7f6] bg-[#faf8ff] p-4">
+        <h3 className="text-base font-semibold text-[#4a2b87] mb-1">Rapport global</h3>
+        <p className="text-xs text-gray-500 mb-3">
+          Toutes dates confondues : présents, absents et invités, par catégorie et par culte. Le PDF s'imprime depuis le navigateur (Imprimer → Enregistrer en PDF).
+        </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <a
+            href="/rapport-global"
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-2 px-5 py-2.5 bg-[#4a2b87] text-white text-sm font-medium rounded-xl hover:bg-[#5a3b97] transition-colors"
+          >
+            📄 Rapport global (PDF)
+          </a>
+          <button
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-[#c7b8ea] text-[#4a2b87] text-sm font-medium rounded-xl hover:bg-purple-50 transition-colors disabled:opacity-60"
+          >
+            {isExporting ? <Spinner /> : null}
+            Rapport global (Excel)
+          </button>
+        </div>
       </div>
 
       {/* Global Stats */}
@@ -1106,7 +1120,7 @@ export default function DashboardPage({ loaderData }: Route.ComponentProps) {
           {/* Actions nav */}
           <div className="flex items-center gap-2">
             <Link
-              to="/rollcall"
+              to="/rollcall?from=dashboard"
               className="flex items-center gap-1.5 px-3 py-1.5 bg-[#4a2b87] text-white text-xs font-semibold rounded-lg hover:bg-[#5a3b97] transition-colors shadow-sm"
             >
               <span className="hidden sm:inline">📋</span>

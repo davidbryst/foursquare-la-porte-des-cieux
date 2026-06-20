@@ -67,7 +67,8 @@ This is a **React Router v7 SSR app** (full-stack, not SPA) for tracking church 
 | `api/rollcall` | `routes/api/rollcall.ts` | GET/POST — roll-call presence marking |
 | `api/report` | `routes/api/report.ts` | GET global Excel report; POST custom filtered Excel |
 | `api/report-daily` | `routes/api/report-daily.ts` | GET `?date=` — daily report as Excel (présents/absents/invités) |
-| `/rapport-journalier` | `routes/rapport-journalier.tsx` | Printable daily report page (`?date=`); "Print → Save as PDF" produces the PDF (auth required) |
+| `/rapport-journalier` | `routes/rapport-journalier.tsx` | Printable daily report page (`?date=`); day-level lists + **per-culte breakdown**; "Print → Save as PDF" produces the PDF (auth required) |
+| `/rapport-global` | `routes/rapport-global.tsx` | Printable **global** report page (all dates): totals + per-category + per-culte; "Print → Save as PDF" (auth required) |
 | `/rollcall` | `routes/rollcall.tsx` | Roll-call UI |
 | `/display` | `routes/display.tsx` | Projector page showing the rolling access code |
 
@@ -84,9 +85,10 @@ Tables in Turso (SQLite):
 ### Attendance / reporting model
 
 - **Members vs guests are distinct.** Members live in `membre`, guests in `visiteur`. A guest can be promoted to a member via `api/visitors-convert`.
-- **Daily report** (`getDailyReportData(date)` in `database.server.ts`, rendered by `/rapport-journalier` and `api/report-daily`): for a given day it produces three lists — **présents permanents** (members present at ≥1 culte that day), **invités présents** (guests that day), **absents** = all members NOT present that day (derived).
-- **"Journalier" rule:** a member present at any culte of the day is never counted absent that day. **Guests are never counted as absent** (no attendance obligation).
-- `app/utils/report.ts` holds the **client-safe** report types + `categorieLabel` (do not import server-only `database.server.ts` into client-rendered code).
+- **Daily report** (`getDailyReportData(date)` in `database.server.ts`, rendered by `/rapport-journalier` and `api/report-daily`): for a given day it produces three day-level lists — **présents permanents** (members present at ≥1 culte that day), **invités présents** (guests that day), **absents** = all members NOT present that day (derived) — **plus a `parCulte` breakdown** (`CulteReport[]`): for each culte of the day, its présents / invités / absents (absents = all members minus those present at *that specific* culte). Day-level absents respect the "journalier" rule; per-culte absents are the attendance sheet of each individual service.
+- **"Journalier" rule:** a member present at any culte of the day is never counted absent **at the day level**. **Guests are never counted as absent** (no attendance obligation).
+- **Global report** (`getGlobalReportData()` in `database.server.ts`, rendered by `/rapport-global` and `api/report` Excel): all-dates aggregates — totals (présents/absents pointages, invités, membres) + per-category + per-culte breakdowns (`GlobalBreakdownRow`). Here présents/absents are counts of presence records by status.
+- `app/utils/report.ts` holds the **client-safe** report types (`ReportPerson`, `CulteReport`, `DailyReport`, `GlobalReport`, `GlobalBreakdownRow`) + `categorieLabel` (do not import server-only `database.server.ts` into client-rendered code).
 
 ### Context system
 

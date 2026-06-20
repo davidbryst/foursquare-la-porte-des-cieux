@@ -25,4 +25,5 @@ export default [
   route("display", "routes/display.tsx"),
   route("rollcall", "routes/rollcall.tsx"),
   route("rapport-journalier", "routes/rapport-journalier.tsx"),
+  route("rapport-global", "routes/rapport-global.tsx"),
 ] satisfies RouteConfig;

@@ -1,7 +1,7 @@
 import { createClient, type Client } from "@libsql/client";
 import { scrypt, randomBytes, timingSafeEqual } from "crypto";
 import { promisify } from "util";
-import type { ReportPerson, DailyReport } from "~/utils/report";
+import type { ReportPerson, DailyReport, CulteReport, GlobalReport, GlobalBreakdownRow } from "~/utils/report";
 
 const scryptAsync = promisify(scrypt);
 
@@ -158,24 +158,8 @@ async function initTables(): Promise<void> {
     CREATE INDEX IF NOT EXISTS "idx_presences_date" ON "presence" ("date");
   `);
 
-  // Migrations : ajouter les colonnes si elles n'existent pas encore
-  const migrations = [
-    `ALTER TABLE membre ADD COLUMN categorie TEXT DEFAULT 'hommes'`,
-    `ALTER TABLE membre ADD COLUMN photo TEXT`,
-    `CREATE UNIQUE INDEX IF NOT EXISTS idx_presence_unique ON presence(member, culte, date)`,
-    `ALTER TABLE visiteur ADD COLUMN dateDeNaissance TEXT`,
-    `ALTER TABLE membre ADD COLUMN residence TEXT`,
-    `ALTER TABLE visiteur ADD COLUMN residence TEXT`,
-    // Date d'enregistrement du membre (jour de l'inscription, pas la date de naissance)
-    `ALTER TABLE membre ADD COLUMN dateEnregistrement TEXT`,
-  ];
-  for (const sql of migrations) {
-    try {
-      await database.execute(sql);
-    } catch {
-      // La colonne existe déjà — ignorer l'erreur
-    }
-  }
+  // Migrations suivies (chacune n'est appliquée qu'une fois, et tracée)
+  await runMigrations(database);
 
   // Créer l'admin par défaut s'il n'existe pas
   const adminCount = await database.execute("SELECT COUNT(*) as count FROM admin");
@@ -218,6 +202,63 @@ async function initTables(): Promise<void> {
     sql: "INSERT OR IGNORE INTO config (key, value) VALUES (?, ?)",
     args: ["presence_code_expires_at", ""],
   });
+}
+
+// === MIGRATIONS ===
+// Chaque migration a un identifiant unique et n'est appliquée qu'une seule fois.
+// La table "schema_migrations" garde la trace de ce qui a déjà été fait, donc on
+// sait toujours dans quel état est la base — et une vraie panne n'est plus masquée.
+type Migration = { id: string; sql: string };
+
+const MIGRATIONS: Migration[] = [
+  { id: "001_membre_categorie", sql: `ALTER TABLE membre ADD COLUMN categorie TEXT DEFAULT 'hommes'` },
+  { id: "002_membre_photo", sql: `ALTER TABLE membre ADD COLUMN photo TEXT` },
+  { id: "003_presence_unique_index", sql: `CREATE UNIQUE INDEX IF NOT EXISTS idx_presence_unique ON presence(member, culte, date)` },
+  { id: "004_visiteur_dateDeNaissance", sql: `ALTER TABLE visiteur ADD COLUMN dateDeNaissance TEXT` },
+  { id: "005_membre_residence", sql: `ALTER TABLE membre ADD COLUMN residence TEXT` },
+  { id: "006_visiteur_residence", sql: `ALTER TABLE visiteur ADD COLUMN residence TEXT` },
+  { id: "007_membre_dateEnregistrement", sql: `ALTER TABLE membre ADD COLUMN dateEnregistrement TEXT` },
+];
+
+async function markApplied(database: Client, id: string): Promise<void> {
+  await database.execute({
+    sql: `INSERT OR IGNORE INTO schema_migrations (id, applied_at) VALUES (?, ?)`,
+    args: [id, new Date().toISOString()],
+  });
+}
+
+async function runMigrations(database: Client): Promise<void> {
+  // Table de suivi des migrations déjà appliquées
+  await database.execute(`
+    CREATE TABLE IF NOT EXISTS "schema_migrations" (
+      "id" TEXT PRIMARY KEY,
+      "applied_at" TEXT NOT NULL
+    )
+  `);
+
+  // Lire les migrations déjà appliquées
+  const applied = new Set<string>();
+  const res = await database.execute(`SELECT id FROM schema_migrations`);
+  for (const row of res.rows as any[]) applied.add(String(row.id));
+
+  for (const m of MIGRATIONS) {
+    if (applied.has(m.id)) continue;
+    try {
+      await database.execute(m.sql);
+      await markApplied(database, m.id);
+    } catch (e) {
+      const msg = ((e as Error)?.message || "").toLowerCase();
+      // Cas normal sur une base existante (colonne déjà ajoutée AVANT le suivi des
+      // migrations) : on considère la migration comme faite et on l'enregistre.
+      if (msg.includes("duplicate column name")) {
+        await markApplied(database, m.id);
+      } else {
+        // Vraie panne : on la rend VISIBLE (avant, elle était totalement masquée).
+        // On ne marque pas la migration : elle sera retentée au prochain démarrage.
+        console.error(`[migration ${m.id}] ÉCHEC — à corriger :`, e);
+      }
+    }
+  }
 }
 
 // Libellé d'un culte à partir de son identifiant (1 = 1er, 2 = 2ème, 3 = Autre)
@@ -667,46 +708,96 @@ function sortByName(a: ReportPerson, b: ReportPerson): number {
   return `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`, "fr", { sensitivity: "base" });
 }
 
+// Construit une personne de rapport à partir de champs bruts
+function toPerson(nom: any, prenom: any, categorie: any, contact: any): ReportPerson {
+  return { nom: nom || "", prenom: prenom || "", categorie: categorie || "hommes", contact: contact || "" };
+}
+
 // Données du rapport journalier pour une date (logique « journalier » :
 // présent à AU MOINS un culte du jour => jamais compté absent).
 export async function getDailyReportData(date: string): Promise<DailyReport> {
   const database = await ensureDb();
+  const allMembers = await getAllMembers();
 
-  // Membres présents (présence = 1) au moins une fois ce jour-là, dédoublonnés
+  // Présences (présent = 1) du jour, AVEC le culte (pour répartir par culte)
   const presRes = await database.execute({
-    sql: `SELECT DISTINCT m.id, m.nom, m.prenom, COALESCE(m.categorie, 'hommes') as categorie, m.numero
+    sql: `SELECT m.id, m.nom, m.prenom, COALESCE(m.categorie, 'hommes') as categorie, m.numero, p.culte
           FROM presence p JOIN membre m ON p.member = m.id
           WHERE p.date = ? AND p.presence = 1`,
     args: [date],
   });
+
+  // Invités du jour, AVEC le culte
+  const visRes = await database.execute({
+    sql: `SELECT nom, prenom, COALESCE(categorie, 'hommes') as categorie, telephone, culte FROM visiteur WHERE date = ?`,
+    args: [date],
+  });
+
+  // ── Niveau JOURNÉE (règle du dimanche : présent à un culte => jamais absent) ──
   const presentIds = new Set<number>();
   const presents: ReportPerson[] = [];
   for (const r of presRes.rows as any[]) {
-    presentIds.add(Number(r.id));
-    presents.push({ nom: r.nom || "", prenom: r.prenom || "", categorie: r.categorie || "hommes", contact: r.numero || "" });
+    const id = Number(r.id);
+    if (!presentIds.has(id)) {
+      presentIds.add(id);
+      presents.push(toPerson(r.nom, r.prenom, r.categorie, r.numero));
+    }
   }
-
-  // Cultes ayant eu de l'activité ce jour-là
-  const cultesRes = await database.execute({
-    sql: `SELECT DISTINCT culte FROM presence WHERE date = ? ORDER BY culte`,
-    args: [date],
-  });
-  const cultes = (cultesRes.rows as any[]).map((r) => culteLabel(Number(r.culte)));
-
-  // Absents = tous les membres non présents ce jour-là
-  const allMembers = await getAllMembers();
   const absents: ReportPerson[] = allMembers
     .filter((m) => !presentIds.has(m.id))
-    .map((m) => ({ nom: m.nom || "", prenom: m.prenom || "", categorie: m.categorie || "hommes", contact: m.numero || "" }));
+    .map((m) => toPerson(m.nom, m.prenom, m.categorie, m.numero));
+  const invites: ReportPerson[] = (visRes.rows as any[]).map((v) =>
+    toPerson(v.nom, v.prenom, v.categorie, v.telephone)
+  );
 
-  // Invités présents ce jour-là
-  const visRes = await database.execute({
-    sql: `SELECT nom, prenom, COALESCE(categorie, 'hommes') as categorie, telephone FROM visiteur WHERE date = ?`,
-    args: [date],
-  });
-  const invites: ReportPerson[] = (visRes.rows as any[]).map((v) => ({
-    nom: v.nom || "", prenom: v.prenom || "", categorie: v.categorie || "hommes", contact: v.telephone || "",
-  }));
+  // ── Détail PAR CULTE ──
+  // Présents regroupés par culte (dédoublonnés par culte)
+  const presByCulte = new Map<number, { ids: Set<number>; people: ReportPerson[] }>();
+  for (const r of presRes.rows as any[]) {
+    const c = Number(r.culte);
+    if (!presByCulte.has(c)) presByCulte.set(c, { ids: new Set<number>(), people: [] });
+    const bucket = presByCulte.get(c)!;
+    const id = Number(r.id);
+    if (!bucket.ids.has(id)) {
+      bucket.ids.add(id);
+      bucket.people.push(toPerson(r.nom, r.prenom, r.categorie, r.numero));
+    }
+  }
+  // Invités regroupés par culte
+  const invByCulte = new Map<number, ReportPerson[]>();
+  for (const v of visRes.rows as any[]) {
+    const c = Number(v.culte);
+    if (!invByCulte.has(c)) invByCulte.set(c, []);
+    invByCulte.get(c)!.push(toPerson(v.nom, v.prenom, v.categorie, v.telephone));
+  }
+
+  // Tout culte ayant eu au moins un présent ou un invité
+  const culteIds = new Set<number>([...presByCulte.keys(), ...invByCulte.keys()]);
+  const parCulte: CulteReport[] = [...culteIds]
+    .sort((a, b) => a - b)
+    .map((c) => {
+      const bucket = presByCulte.get(c) ?? { ids: new Set<number>(), people: [] };
+      const cultePresents = [...bucket.people].sort(sortByName);
+      const culteInvites = [...(invByCulte.get(c) ?? [])].sort(sortByName);
+      // Absents à CE culte = membres non présents à ce culte précis (calculé)
+      const culteAbsents = allMembers
+        .filter((m) => !bucket.ids.has(m.id))
+        .map((m) => toPerson(m.nom, m.prenom, m.categorie, m.numero))
+        .sort(sortByName);
+      return {
+        culte: culteLabel(c),
+        presents: cultePresents,
+        absents: culteAbsents,
+        invites: culteInvites,
+        counts: {
+          presents: cultePresents.length + culteInvites.length,
+          absents: culteAbsents.length,
+          invites: culteInvites.length,
+        },
+      };
+    });
+
+  const cultes = parCulte.map((pc) => pc.culte);
 
   presents.sort(sortByName);
   absents.sort(sortByName);
@@ -718,6 +809,60 @@ export async function getDailyReportData(date: string): Promise<DailyReport> {
     presents,
     invites,
     absents,
+    parCulte,
     counts: { presents: presents.length + invites.length, absents: absents.length, invites: invites.length },
+  };
+}
+
+// === RAPPORT GLOBAL (toutes dates) ===
+
+// Agrégats du rapport global, partagés par l'export Excel et le rendu PDF imprimable.
+const REPORT_CATEGORIES = ["enfants", "jeunes", "femmes", "hommes"] as const;
+
+export async function getGlobalReportData(): Promise<GlobalReport> {
+  const [presences, visiteurs, members] = await Promise.all([
+    getAllPresences(),
+    getAllVisiteurs(),
+    getAllMembers(),
+  ]);
+
+  const presents = presences.filter((p) => p.presence === "Présent").length;
+  const absents = presences.filter((p) => p.presence === "Absent").length;
+
+  const parCategorie: GlobalBreakdownRow[] = REPORT_CATEGORIES.map((cat) => {
+    const cp = presences.filter((p) => p.categorie === cat);
+    const cv = visiteurs.filter((v) => v.categorie === cat);
+    return {
+      label: cat,
+      presents: cp.filter((p) => p.presence === "Présent").length,
+      absents: cp.filter((p) => p.presence === "Absent").length,
+      total: cp.length,
+      visiteurs: cv.length,
+    };
+  });
+
+  const culteLabels = [...new Set(presences.map((p) => p.culte))].sort();
+  const parCulte: GlobalBreakdownRow[] = culteLabels.map((culte) => {
+    const cp = presences.filter((p) => p.culte === culte);
+    const cv = visiteurs.filter((v) => v.culte === culte);
+    return {
+      label: culte,
+      presents: cp.filter((p) => p.presence === "Présent").length,
+      absents: cp.filter((p) => p.presence === "Absent").length,
+      total: cp.length,
+      visiteurs: cv.length,
+    };
+  });
+
+  return {
+    totals: {
+      enregistrements: presences.length,
+      presents,
+      absents,
+      visiteurs: visiteurs.length,
+      membres: members.length,
+    },
+    parCategorie,
+    parCulte,
   };
 }

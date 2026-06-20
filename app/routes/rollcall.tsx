@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import type { Route } from "./+types/rollcall";
 import { getAllMembers } from "~/db/database.server";
 
@@ -11,7 +11,18 @@ export async function loader({ request }: Route.LoaderArgs) {
     // Pas d'authentification requise — accessible aux huissiers sans connexion
     const members = await getAllMembers();
     const categories = ["tous", "hommes", "femmes", "jeunes", "enfants"];
-    return { categories, totalMembers: members.length };
+
+    // Destination du bouton « Retour » selon la provenance (?from=...).
+    // Liste blanche : on ne redirige que vers des pages internes connues.
+    const from = new URL(request.url).searchParams.get("from") || "";
+    const BACK: Record<string, { to: string; label: string }> = {
+        dashboard: { to: "/dashboard", label: "← Dashboard" },
+        display: { to: "/display", label: "← Retour" },
+        home: { to: "/", label: "← Accueil" },
+    };
+    const back = BACK[from] ?? { to: "/", label: "← Accueil" };
+
+    return { categories, totalMembers: members.length, back };
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -57,8 +68,7 @@ const CATEGORIE_COLORS: Record<string, string> = {
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function RollCallPage({ loaderData }: Route.ComponentProps) {
-    const navigate = useNavigate();
-    const { categories } = loaderData;
+    const { categories, back } = loaderData;
 
     const [date, setDate] = useState(today());
     const [culteId, setCulteId] = useState(1);
@@ -174,18 +184,12 @@ export default function RollCallPage({ loaderData }: Route.ComponentProps) {
             <header className="bg-white/80 backdrop-blur-xl border-b border-white sticky top-0 z-20 shadow-sm">
                 <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                        <button
-                            onClick={() => {
-                                if (window.history?.length > 1) {
-                                    navigate(-1);
-                                } else {
-                                    navigate("/");
-                                }
-                            }}
+                        <Link
+                            to={back.to}
                             className="text-[#4a2b87] hover:text-[#3a1b77] text-sm font-medium shrink-0 flex items-center gap-1 cursor-pointer"
                         >
-                            ← Retour
-                        </button>
+                            {back.label}
+                        </Link>
                         <span className="text-gray-300 hidden sm:block">|</span>
                         <h1 className="text-[#4a2b87] font-bold text-base sm:text-lg truncate hidden sm:block">
                             Liste d'appel
