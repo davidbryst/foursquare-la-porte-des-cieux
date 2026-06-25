@@ -1,0 +1,272 @@
+{
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\package.json": {
+    "mtime": 1765727808.7631514,
+    "ast_hash": "79ea4100c569075df868f0be539d3b17",
+    "semantic_hash": "79ea4100c569075df868f0be539d3b17"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\postcss.config.js": {
+    "mtime": 1765643402.4098845,
+    "ast_hash": "7215ee9c7d9dc229d2921a40e899ec5f",
+    "semantic_hash": "7215ee9c7d9dc229d2921a40e899ec5f"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\react-router.config.ts": {
+    "mtime": 1765205309.0,
+    "ast_hash": "6756d955f9e7bf3eae2817433bf72b26",
+    "semantic_hash": "6756d955f9e7bf3eae2817433bf72b26"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\tsconfig.json": {
+    "mtime": 1765205309.0,
+    "ast_hash": "31e193d16fd240811ce8a6e7ca8216e8",
+    "semantic_hash": "31e193d16fd240811ce8a6e7ca8216e8"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\vite.config.ts": {
+    "mtime": 1765644245.8286018,
+    "ast_hash": "b574bf3622358276d5c834e91d746794",
+    "semantic_hash": "b574bf3622358276d5c834e91d746794"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\.claude\\settings.local.json": {
+    "mtime": 1772132708.913278,
+    "ast_hash": "a4c37b5d692d8234cacbc174f870a160",
+    "semantic_hash": "a4c37b5d692d8234cacbc174f870a160"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\root.tsx": {
+    "mtime": 1772117213.7958086,
+    "ast_hash": "31ec9bf61dbf590e3c16ec18fc6d2251",
+    "semantic_hash": "31ec9bf61dbf590e3c16ec18fc6d2251"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes.ts": {
+    "mtime": 1776238363.9158788,
+    "ast_hash": "a90d665abac5fd10659654bbe8083d99",
+    "semantic_hash": "a90d665abac5fd10659654bbe8083d99"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\DeleteMemberForm.tsx": {
+    "mtime": 1765318554.1523888,
+    "ast_hash": "b3a550245d6ee8089c864b8620de1814",
+    "semantic_hash": "b3a550245d6ee8089c864b8620de1814"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\Header.tsx": {
+    "mtime": 1765763632.667327,
+    "ast_hash": "4d80696e139b49e94f83efcef66be7db",
+    "semantic_hash": "4d80696e139b49e94f83efcef66be7db"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\LoginForm.tsx": {
+    "mtime": 1765318554.1523888,
+    "ast_hash": "a7b59cd7c8a2c86df943d5f75c8d032e",
+    "semantic_hash": "a7b59cd7c8a2c86df943d5f75c8d032e"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\MemberForm.tsx": {
+    "mtime": 1765487035.4989538,
+    "ast_hash": "febc3e51e21391db647e5ffc0d82af89",
+    "semantic_hash": "febc3e51e21391db647e5ffc0d82af89"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\PresenceForm.tsx": {
+    "mtime": 1765487054.975891,
+    "ast_hash": "eb15ee4268bb361dc6a5f9a2bc235d64",
+    "semantic_hash": "eb15ee4268bb361dc6a5f9a2bc235d64"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\modals\\MemberEditModal.tsx": {
+    "mtime": 1777169002.50242,
+    "ast_hash": "8026745278aa09bdc4bd4a28aa111a25",
+    "semantic_hash": "8026745278aa09bdc4bd4a28aa111a25"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\modals\\PresenceEditModal.tsx": {
+    "mtime": 1776499324.8586102,
+    "ast_hash": "9262b6490841799913f28c3b8eebe4a8",
+    "semantic_hash": "9262b6490841799913f28c3b8eebe4a8"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\modals\\VisitorEditModal.tsx": {
+    "mtime": 1777169000.9435995,
+    "ast_hash": "6b3747eecdee3975179dcd697598b486",
+    "semantic_hash": "6b3747eecdee3975179dcd697598b486"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\tables\\MemberTable.tsx": {
+    "mtime": 1765389476.5379868,
+    "ast_hash": "4c8908491afaf60daa4eb671f2a247b0",
+    "semantic_hash": "4c8908491afaf60daa4eb671f2a247b0"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\tables\\PresenceTable.tsx": {
+    "mtime": 1765649697.7726853,
+    "ast_hash": "8b2e645eeff659b7f50f75f775a9841b",
+    "semantic_hash": "8b2e645eeff659b7f50f75f775a9841b"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\ui\\Button.tsx": {
+    "mtime": 1765292516.1795337,
+    "ast_hash": "7a109b11a08ff3770408161edb34a3cf",
+    "semantic_hash": "7a109b11a08ff3770408161edb34a3cf"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\ui\\Card.tsx": {
+    "mtime": 1765292869.3642285,
+    "ast_hash": "2086ad58a0fc37c5f0a4e3dbc4e1901e",
+    "semantic_hash": "2086ad58a0fc37c5f0a4e3dbc4e1901e"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\ui\\Input.tsx": {
+    "mtime": 1765656021.8115916,
+    "ast_hash": "1a4c384528bdd17a2f10665fc7c91b41",
+    "semantic_hash": "1a4c384528bdd17a2f10665fc7c91b41"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\ui\\SearchableSelect.tsx": {
+    "mtime": 1765675850.097726,
+    "ast_hash": "e911eac8ba3707db2d26f34713142136",
+    "semantic_hash": "e911eac8ba3707db2d26f34713142136"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\ui\\Select.tsx": {
+    "mtime": 1765263664.2706604,
+    "ast_hash": "bd9cadaae795d4aa958409bc97b191c1",
+    "semantic_hash": "bd9cadaae795d4aa958409bc97b191c1"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\ui\\SuccessModal.tsx": {
+    "mtime": 1764897342.8612986,
+    "ast_hash": "053350b76c8a9e573957814bc978a690",
+    "semantic_hash": "053350b76c8a9e573957814bc978a690"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\ui\\Tabs.tsx": {
+    "mtime": 1765251819.3647757,
+    "ast_hash": "d4d7a6c59634e904bf80614aee28b80a",
+    "semantic_hash": "d4d7a6c59634e904bf80614aee28b80a"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\components\\ui\\Toast.tsx": {
+    "mtime": 1765762600.3317657,
+    "ast_hash": "1d7e34c76b1eac4a818a3875a7afa4a9",
+    "semantic_hash": "1d7e34c76b1eac4a818a3875a7afa4a9"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\context\\ModalContext.tsx": {
+    "mtime": 1777168952.0431738,
+    "ast_hash": "7c09c72c95ad9b7e2c195aacdc6ec3fd",
+    "semantic_hash": "7c09c72c95ad9b7e2c195aacdc6ec3fd"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\context\\ToastContext.tsx": {
+    "mtime": 1765762628.6448085,
+    "ast_hash": "8cc4cbef9fde9d200ea38560dabab05d",
+    "semantic_hash": "8cc4cbef9fde9d200ea38560dabab05d"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\db\\database.server.ts": {
+    "mtime": 1777168935.0752318,
+    "ast_hash": "272a1cc447e35d3b4cff1ea607f9715c",
+    "semantic_hash": "272a1cc447e35d3b4cff1ea607f9715c"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\dashboard-login.tsx": {
+    "mtime": 1765732282.9925313,
+    "ast_hash": "278c3f6406e0b3742d5ba9d7f5ebe6be",
+    "semantic_hash": "278c3f6406e0b3742d5ba9d7f5ebe6be"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\dashboard.tsx": {
+    "mtime": 1777169081.7994597,
+    "ast_hash": "fb252b3d4753fdfdef0d756a9b46db13",
+    "semantic_hash": "fb252b3d4753fdfdef0d756a9b46db13"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\display.tsx": {
+    "mtime": 1776511914.9276526,
+    "ast_hash": "7fd7e593a7106859cbf7330eee213905",
+    "semantic_hash": "7fd7e593a7106859cbf7330eee213905"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\home.tsx": {
+    "mtime": 1778228202.4758296,
+    "ast_hash": "05668ea3a976a46d90cbc0e7e4f3cd5c",
+    "semantic_hash": "05668ea3a976a46d90cbc0e7e4f3cd5c"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\rollcall.tsx": {
+    "mtime": 1776498276.3496282,
+    "ast_hash": "71371deb6465040ef059cbe7b1c0d569",
+    "semantic_hash": "71371deb6465040ef059cbe7b1c0d569"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\auth-login.ts": {
+    "mtime": 1772117114.4228787,
+    "ast_hash": "dd41c383f90fd82b37989ceaf495e964",
+    "semantic_hash": "dd41c383f90fd82b37989ceaf495e964"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\auth-logout.ts": {
+    "mtime": 1765641488.9813094,
+    "ast_hash": "9c0b2f8ae5bf7427685510c011f083e8",
+    "semantic_hash": "9c0b2f8ae5bf7427685510c011f083e8"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\config.ts": {
+    "mtime": 1772153050.2320962,
+    "ast_hash": "7ea373ec608c15b162d4267812eada2e",
+    "semantic_hash": "7ea373ec608c15b162d4267812eada2e"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\members-id.ts": {
+    "mtime": 1777168973.4647884,
+    "ast_hash": "d81c01e0858dad006503cc20160559c1",
+    "semantic_hash": "d81c01e0858dad006503cc20160559c1"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\members.ts": {
+    "mtime": 1778227203.2109118,
+    "ast_hash": "932fe39a3fc55b9c565d994ec10d1257",
+    "semantic_hash": "932fe39a3fc55b9c565d994ec10d1257"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\presence-unlock.ts": {
+    "mtime": 1772153074.0059032,
+    "ast_hash": "b4eda16254a508179028aebdd5b236d1",
+    "semantic_hash": "b4eda16254a508179028aebdd5b236d1"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\presences-id.ts": {
+    "mtime": 1765730601.600536,
+    "ast_hash": "07efd3294f63328bf8fc25ff6a7de9b5",
+    "semantic_hash": "07efd3294f63328bf8fc25ff6a7de9b5"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\presences.ts": {
+    "mtime": 1765730601.600536,
+    "ast_hash": "562d58329a6ed7d249b24d35cdbde109",
+    "semantic_hash": "562d58329a6ed7d249b24d35cdbde109"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\report.ts": {
+    "mtime": 1777169056.3345308,
+    "ast_hash": "4831bcbbc712b3d4758305ae4e5bdc63",
+    "semantic_hash": "4831bcbbc712b3d4758305ae4e5bdc63"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\rollcall.ts": {
+    "mtime": 1776284713.6468978,
+    "ast_hash": "94c3e0a2daf7dac9b092d6b071f147f3",
+    "semantic_hash": "94c3e0a2daf7dac9b092d6b071f147f3"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\visitors-id.ts": {
+    "mtime": 1777168977.7259295,
+    "ast_hash": "9f945c7a541edc7a2cc7be9e6c107eb2",
+    "semantic_hash": "9f945c7a541edc7a2cc7be9e6c107eb2"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\routes\\api\\visitors.ts": {
+    "mtime": 1777168975.7193637,
+    "ast_hash": "c0aefd9b82db132786e2ceb3cbb124ab",
+    "semantic_hash": "c0aefd9b82db132786e2ceb3cbb124ab"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\app\\utils\\session.server.ts": {
+    "mtime": 1772137622.3287194,
+    "ast_hash": "7c36a3c7a50be3101cb52738a805af78",
+    "semantic_hash": "7c36a3c7a50be3101cb52738a805af78"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\data\\data.db.sql": {
+    "mtime": 1765247423.5436354,
+    "ast_hash": "783a8cb8ed6795c00912790f9afd6f3a",
+    "semantic_hash": "783a8cb8ed6795c00912790f9afd6f3a"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\public\\.well-known\\appspecific\\com.chrome.devtools.json": {
+    "mtime": 1776499826.4474454,
+    "ast_hash": "8a80554c91d9fca8acb82f023de02f11",
+    "semantic_hash": "8a80554c91d9fca8acb82f023de02f11"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\APPROCHES-PRESENCE.md": {
+    "mtime": 1776225766.3893297,
+    "ast_hash": "a8c9ebed7727baec45644f30108faa89",
+    "semantic_hash": "a8c9ebed7727baec45644f30108faa89"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\CLAUDE.md": {
+    "mtime": 1772086186.993773,
+    "ast_hash": "b1018dddd78d6c5074c0452e71c3a30c",
+    "semantic_hash": "b1018dddd78d6c5074c0452e71c3a30c"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\README.md": {
+    "mtime": 1765205309.0,
+    "ast_hash": "326d3abf712fa381742d7e7b196af2c2",
+    "semantic_hash": "326d3abf712fa381742d7e7b196af2c2"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\public\\apple-touch-icon-precomposed.png": {
+    "mtime": 1765654958.9718301,
+    "ast_hash": "54a1c0cc5411cefd716faba2d4b2761e",
+    "semantic_hash": "54a1c0cc5411cefd716faba2d4b2761e"
+  },
+  "C:\\Users\\david\\.projet\\presence-culte-v7\\public\\apple-touch-icon.png": {
+    "mtime": 1765654952.760209,
+    "ast_hash": "54a1c0cc5411cefd716faba2d4b2761e",
+    "semantic_hash": "54a1c0cc5411cefd716faba2d4b2761e"
+  }
+}
